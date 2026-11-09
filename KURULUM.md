@@ -195,7 +195,8 @@ durumunda kalabilir; bu durumda depo sahibinin onaylamasi gerekir.
 
 `git` kurulursa (Git for Windows, Git Credential Manager ile birlikte gelir)
 token gerekmez: `git push` komutu tarayici penceresi acar, GitHub'a giris
-yapilir ve kimlik bilgisi Windows Kimlik Bilgileri'nde saklanir.
+yapilir ve kimlik bilgisi Windows Kimlik Bilgileri'nde saklanir. Kurulum:
+`winget install --id Git.Git -e`.
 
 ### 6.5 Depo adi ve dal
 
