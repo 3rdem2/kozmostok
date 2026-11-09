@@ -206,6 +206,7 @@ belirtilmezse `main` kullanilir. Depo adi buyuk/kucuk harf duyarlidir; adres
 bos olmalidir; README eklenmisse once `git pull --rebase` gerekir.
 
 ## 7. Surum ve ozet
+
 | Surum | Paket | Boyut | sha256 |
 |---|---|---|---|
 | 1.0.0 (2026-11-09) | `KozmoStok-win.zip` | 128,9 MB | `969968faa6c90571e7615e60c2af2c310c9bf2a5cc60b75aca71e4bba30aba51` |
