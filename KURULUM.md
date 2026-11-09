@@ -103,10 +103,9 @@ python -c "from core.kasa import sifrele; print(sifrele('YENI_SIFRE'))"
 - Anahtar uygulama icinde gomulu oldugu icin bu koruma "dosyayi okuyan kisiye
   karsi" duzeyindedir; tersine muhendislige karsi mutlak koruma degildir.
   Daha siki koruma icin veritabani tarafinda kisitli yetkili kullanici acin.
-
 ## 6. Derleme
-Windows (bu makinede):
 
+Windows (bu makinede):
 ```bat
 paketle_win.bat
 ```
