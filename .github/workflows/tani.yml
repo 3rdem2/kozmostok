@@ -3,6 +3,6 @@ on:
   workflow_dispatch:
 jobs:
   t:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
-      - run: echo merhaba
+      - run: sw_vers
