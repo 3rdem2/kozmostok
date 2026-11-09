@@ -247,7 +247,6 @@ bulunur. `_internal/config.ini` sifreli surumdur; bu dosyayi degistirirseniz
 ozet de degisir.
 
 ## 8. Bilinen sinirlar
-
 - Urun gorselleri hala `assets/urun_gorselleri` klasorunden ve veritabanindaki
   mutlak yollardan okunur; baska bilgisayarda eski kayitlarin gorselleri
   gorunmeyebilir (gorsellerin veritabanina tasinmasi ayri is).
