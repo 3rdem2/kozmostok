@@ -163,6 +163,12 @@ pip install dulwich
 KOZMO_TOKEN=*** python kozmo_push.py KULLANICI DEPO main
 ```
 
+Token'i komut satirina yazmak istemezseniz bir dosyaya koyup yolunu verin:
+
+```bash
+KOZMO_TOKEN_DOSYA=C:/gecici/token.txt python kozmo_push.py KULLANICI DEPO main
+```
+
 Token GitHub → Settings → Developer settings → Fine-grained tokens bolumunden
 uretilir; yalnizca ilgili depoya `Contents: Read and write` yetkisi verilir.
 Token komut satirina yazilmaz, ortam degiskeninden okunur ve hata mesajlarinda
