@@ -228,7 +228,8 @@ baslatilir. Derleme bitince artifact indirilir, ardindan token iptal edilir.
 
 ## 7. Surum ve ozet
 
-| Surum | Paket | Boyut | sha256 ||---|---|---|---|
+| Surum | Paket | Boyut | sha256 |
+|---|---|---|---|
 | 1.0.0 (2026-11-09) | `KozmoStok-win.zip` | 128,9 MB | `969968faa6c90571e7615e60c2af2c310c9bf2a5cc60b75aca71e4bba30aba51` |
 
 Zip icinde ust klasor yoktur: `KozmoStok.exe` + `_internal/` dogrudan kokte
