@@ -205,6 +205,16 @@ belirtilmezse `main` kullanilir. Depo adi buyuk/kucuk harf duyarlidir; adres
 `https://github.com/KULLANICI/DEPO` bicimindedir. Ilk push'ta GitHub'da depo
 bos olmalidir; README eklenmisse once `git pull --rebase` gerekir.
 
+### 6.6 Kontrol listesi
+
+- [ ] GitHub'da bos private depo acildi
+- [ ] Token olusturuldu ve `Contents: Read and write` verildi
+- [ ] Token bir dosyaya yazildi (sohbete/koda degil)
+- [ ] `python kozmo_push.py KULLANICI DEPO main` calistirildi
+- [ ] Actions → macOS paket → Run workflow yesil
+- [ ] Artifact `KozmoStok-mac` indirildi
+- [ ] Token iptal edildi
+
 ## 7. Surum ve ozet
 
 | Surum | Paket | Boyut | sha256 |
