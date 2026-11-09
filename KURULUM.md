@@ -35,18 +35,30 @@ kaldirmak icin kod imzalama sertifikasi (OV/EV) gerekir.
 
 ### 3.0 En kolay yol: hazir paketi GitHub'dan indir (derleme YOK)
 
-Kendi Mac'inde derlemeye gerek yok; GitHub zaten Mac paketini uretti:
+GitHub Actions **iki Mac paketi de** otomatik uretir: Apple Silicon ve Intel.
+Once Mac'in tipine bakin: sol ustte **Apple menusu → Bu Mac Hakkinda**.
+
+- **"Cip"** yaziyorsa (Apple M1/M2/M3/M4) → paket: **KozmoStok-mac**
+- **"Islemci ... Intel"** yaziyorsa (macOS Monterey 12.7.6'da takilan eski
+  Mac'ler genelde boyle) → paket: **KozmoStok-mac-intel**
+
+Indirme adimlari:
 
 1. Tarayicidan `github.com/3rdem2/kozmostok` ac, giris yap.
 2. **Actions** sekmesine tikla → solda **macOS paket** → en ustteki yesil
    tikli isleme gir.
-3. Sayfayi asagi kaydir → **Artifacts** bolumunden **KozmoStok-mac** dosyasini
-   indir (zip icinde `KozmoStok-mac.dmg` ve `KozmoStok-mac.zip` var).
-4. Icindeki `KozmoStok-mac.dmg` dosyasina cift tikla → acilan pencerede
-   `KozmoStok.app`'i **Applications** klasorune surukle → kurulum bitti.
+3. Sayfayi asagi kaydir → **Artifacts** bolumunden kendi Mac'ine uygun
+   paketi indir (`KozmoStok-mac` veya `KozmoStok-mac-intel`).
+4. Indirilen zip'e cift tikla → icindeki `KozmoStok-mac.dmg` (Intel'de
+   `KozmoStok-mac-intel.dmg`) dosyasina cift tikla.
+5. Acilan pencerede `KozmoStok.app`'i **Applications** klasorune surukle.
+6. Ilk acilis: uygulamaya **sag tik → Ac → Ac**. (Cift tik Gatekeeper
+   nedeniyle engellenebilir; bu normaldir.)
+7. Giris: `admin / yonetici` → veriler Supabase'den gelir.
 
-Not: bu paket Apple Silicon (M1/M2/M3/M4) Mac'ler icindir. Eski Intel Mac'te
-kullanmak icin asagidaki 3.1'deki yontemle Mac uzerinde derle.
+Intel paketi macOS 12 (Monterey) ve ustunde, Apple Silicon paketi ise
+yeni Mac'lerde calisir. Eski Intel Mac'te de Rosetta uzerinden Apple
+Silicon paketi yerine dogrudan Intel paketini kullanin.
 
 ### 3.1 Mac'te paket uretme (cift tikla)
 

@@ -1,4 +1,6 @@
-PyQt6>=6.6.0
+PyQt6==6.7.1
+# Not: PyQt6'yi 6.7.1'de sabitledik; yeni Qt surumleri macOS 12 (Monterey)
+# destegini birakiyor. Intel/eski Mac paketleri bu sayle Monterey'de acilir.
 openpyxl>=3.1.0
 psycopg2-binary>=2.9.9
 python-barcode>=0.15.1
