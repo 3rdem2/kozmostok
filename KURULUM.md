@@ -300,3 +300,9 @@ ozet de degisir.
 Bir adimda takilirsaniz ekran goruntusunu veya hata metnini paylasin; token ve
 sifre gibi gizli degerleri maskeleyin. Hata metninde `github_pat_` veya `ghp_`
 ile baslayan bir dizi gorurseniz o token'i hemen iptal edin.
+
+## 13. Durum
+
+Yerel depo hazir: dal `main`, 287 dosya, son commit `d7e5775efc`. Push
+yapilmadi; token bekleniyor. Windows paketi `KozmoStok-win.zip` hazir ve test
+edildi. Mac paketi GitHub Actions veya bir Mac gerektirir.

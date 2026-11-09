@@ -26,6 +26,9 @@ build/
 *.tmp
 # Git ic dosyalari
 .git-credentials
+kozmo_token.txt
+kozmo_token.txt.txt
+*token*.txt
 # Eski/yinelenen klasor kopyalari (kullanilmiyor)
 ui/ui/
 core/core/
