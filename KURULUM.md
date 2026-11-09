@@ -202,7 +202,8 @@ yapilir ve kimlik bilgisi Windows Kimlik Bilgileri'nde saklanir. Kurulum:
 
 Yerel depo `main` dali uzerinde durur (GitHub varsayilani). Push komutunda dal
 belirtilmezse `main` kullanilir. Depo adi buyuk/kucuk harf duyarlidir; adres
-`https://github.com/KULLANICI/DEPO` bicimindedir.
+`https://github.com/KULLANICI/DEPO` bicimindedir. Ilk push'ta GitHub'da depo
+bos olmalidir; README eklenmisse once `git pull --rebase` gerekir.
 
 ## 7. Surum ve ozet
 | Surum | Paket | Boyut | sha256 |
