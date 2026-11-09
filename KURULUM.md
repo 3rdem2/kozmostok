@@ -226,6 +226,16 @@ Push basarili olunca depo sayfasinda 287 dosya gorunur. **Actions** sekmesinde
 `macOS paket` is akisi listelenir; ilk calistirma `workflow_dispatch` ile elle
 baslatilir. Derleme bitince artifact indirilir, ardindan token iptal edilir.
 
+### 6.9 Sorun giderme
+
+| Belirti | Cozum |
+|---|---|
+| `No valid credentials provided` | Token yanlis/suresi dolmus ya da `Contents: Read and write` verilmemis |
+| `404` | Kullanici/depo adi yanlis veya token o depoya yetkili degil |
+| Actions'ta `macOS paket` yok | `.github/workflows/build-macos.yml` push edilmemis |
+| `No module named psycopg2` | Runner bagimliligi kuramadi; log satirini inceleyin |
+| Mac'te "hasar gormus" | Ad-hoc imza atlanmis; `codesign --force --deep --sign -` |
+
 ## 7. Surum ve ozet
 
 | Surum | Paket | Boyut | sha256 |
