@@ -270,3 +270,4 @@ ozet de degisir.
 | Veri klasoru (Win) | `%LOCALAPPDATA%\KozmoStok` |
 | Veri klasoru (Mac) | `~/Library/Application Support/KozmoStok` |
 | Surum | `surum.json` |
+| Token dosyasi | `%LOCALAPPDATA%\Temp\kozmo_token.txt` (is bitince silinir) |
