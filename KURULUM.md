@@ -253,3 +253,5 @@ ozet de degisir.
   gorunmeyebilir (gorsellerin veritabanina tasinmasi ayri is).
 - Etiket yazdirma program uzerinden yapilmaz; `.axpx` uretilip Argox yazilimi
   ile basilir.
+- Mac paketi bu makinede uretilemez; GitHub Actions veya bir Mac gerekir.
+- Kod imzalama sertifikasi yoksa Windows SmartScreen ve macOS Gatekeeper uyarir.
