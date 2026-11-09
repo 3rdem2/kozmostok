@@ -169,8 +169,13 @@ Token'i komut satirina yazmak istemezseniz bir dosyaya koyup yolunu verin:
 KOZMO_TOKEN_DOSYA=C:/gecici/token.txt python kozmo_push.py KULLANICI DEPO main
 ```
 
-Token GitHub → Settings → Developer settings → Fine-grained tokens bolumunden
-uretilir; yalnizca ilgili depoya `Contents: Read and write` yetkisi verilir.
+Token GitHub → Settings → Developer settings → Fine-grained tokens
+(https://github.com/settings/tokens?type=beta) bolumunden uretilir; yalnizca
+ilgili depoya `Contents: Read and write` yetkisi verilir. Formun en altindaki
+yesil **Generate token** dugmesine basilmadan token olusmaz; olusan
+`github_pat_...` metni yalnizca bir kez gosterilir, sayfadan cikilirsa
+kurtarilamaz ve yeni token uretmek gerekir. Klasik token alternatifi:
+https://github.com/settings/tokens/new → scope `repo` → `ghp_...`.
 Token komut satirina yazilmaz, ortam degiskeninden okunur ve hata mesajlarinda
 maskelenir. Gonderim sonrasi token'i iptal edip yenilemek en guvenlisidir.
 
