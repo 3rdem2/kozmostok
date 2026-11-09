@@ -280,3 +280,17 @@ ozet de degisir.
 4. Guncelleme icin `surum.json` + zip barindirma adresi belirlenir.
 5. Urun gorsellerinin veritabanina tasinmasi ayri bir is olarak planlanir.
 6. Kod imzalama sertifikasi alinirsa SmartScreen/Gatekeeper uyarilari kalkar.
+
+## 11. Sozluk
+
+| Terim | Anlami |
+|---|---|
+| Depo (repository) | Kodun GitHub'daki kopyasi |
+| Commit | Degisikliklerin kayitli anlik goruntusu |
+| Push | Yerel commit'leri GitHub'a gonderme |
+| Token | Sifre yerine kullanilan, sureli ve yetki sinirli anahtar |
+| Actions | GitHub'in kod icin calistirdigi otomatik isler |
+| Runner | Isi calistiran makine (macos-14 = GitHub'in Mac sunucusu) |
+| Artifact | Is bitince uretilen indirilebilir dosya |
+| Gatekeeper | macOS'un imzasiz uygulama uyarisi |
+| SmartScreen | Windows'un imzasiz exe uyarisi |
