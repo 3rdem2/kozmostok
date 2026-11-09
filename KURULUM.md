@@ -271,3 +271,11 @@ ozet de degisir.
 | Veri klasoru (Mac) | `~/Library/Application Support/KozmoStok` |
 | Surum | `surum.json` |
 | Token dosyasi | `%LOCALAPPDATA%\Temp\kozmo_token.txt` (is bitince silinir) |
+
+## 10. Sonraki adimlar
+
+1. Depo adresi ve token hazir oldugunda push calistirilir.
+2. Actions'ta macOS paketi uretilir, artifact indirilir.
+3. Iki Mac ve iki Windows makinesinde kurulum ve Supabase baglantisi denenir.
+4. Guncelleme icin `surum.json` + zip barindirma adresi belirlenir.
+5. Urun gorsellerinin veritabanina tasinmasi ayri bir is olarak planlanir.
