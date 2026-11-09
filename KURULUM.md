@@ -168,6 +168,9 @@ Token'i komut satirina yazmak istemezseniz bir dosyaya koyup yolunu verin:
 KOZMO_TOKEN_DOSYA=C:/gecici/token.txt python kozmo_push.py KULLANICI DEPO main
 ```
 
+Dosya yolu verilmezse betik `KOZMO_TOKEN` ortam degiskenine bakar; ikisi de
+yoksa `HATA: KOZMO_TOKEN veya KOZMO_TOKEN_DOSYA tanimli degil.` yazar.
+
 Token GitHub → Settings → Developer settings → Fine-grained tokens
 (https://github.com/settings/tokens?type=beta) bolumunden uretilir; yalnizca
 ilgili depoya `Contents: Read and write` yetkisi verilir. Formun en altindaki
