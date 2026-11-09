@@ -279,3 +279,4 @@ ozet de degisir.
 3. Iki Mac ve iki Windows makinesinde kurulum ve Supabase baglantisi denenir.
 4. Guncelleme icin `surum.json` + zip barindirma adresi belirlenir.
 5. Urun gorsellerinin veritabanina tasinmasi ayri bir is olarak planlanir.
+6. Kod imzalama sertifikasi alinirsa SmartScreen/Gatekeeper uyarilari kalkar.
