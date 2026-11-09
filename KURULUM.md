@@ -258,3 +258,15 @@ ozet de degisir.
 - Guncelleme icin `surum.json` ve zip'in barindirilacagi adres henuz
   belirlenmedi; Sistem sekmesindeki `guncelleme_url` alani bos ise Guncelle
   dugmesi "adres tanimli degil" uyarisi verir.
+
+## 9. Hizli basvuru
+
+| Islem | Komut / yer |
+|---|---|
+| Windows paketi | `paketle_win.bat` |
+| Mac paketi (Mac'te) | `./paketle_mac.sh` |
+| Mac paketi (GitHub) | Actions → macOS paket → Run workflow |
+| Push | `python kozmo_push.py KULLANICI DEPO main` |
+| Veri klasoru (Win) | `%LOCALAPPDATA%\KozmoStok` |
+| Veri klasoru (Mac) | `~/Library/Application Support/KozmoStok` |
+| Surum | `surum.json` |
