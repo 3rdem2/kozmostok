@@ -3,6 +3,6 @@ on:
   workflow_dispatch:
 jobs:
   t:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - run: sw_vers
