@@ -220,6 +220,12 @@ bos olmalidir; README eklenmisse once `git pull --rebase` gerekir.
 `https://github.com/erdemtug/kozmostok` → kullanici `erdemtug`, depo `kozmostok`.
 Push komutu: `python kozmo_push.py erdemtug kozmostok main`.
 
+### 6.8 Push sonrasi
+
+Push basarili olunca depo sayfasinda 287 dosya gorunur. **Actions** sekmesinde
+`macOS paket` is akisi listelenir; ilk calistirma `workflow_dispatch` ile elle
+baslatilir. Derleme bitince artifact indirilir, ardindan token iptal edilir.
+
 ## 7. Surum ve ozet
 
 | Surum | Paket | Boyut | sha256 ||---|---|---|---|
