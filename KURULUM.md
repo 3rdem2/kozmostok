@@ -105,7 +105,6 @@ python -c "from core.kasa import sifrele; print(sifrele('YENI_SIFRE'))"
   Daha siki koruma icin veritabani tarafinda kisitli yetkili kullanici acin.
 
 ## 6. Derleme
-
 Windows (bu makinede):
 
 ```bat
@@ -153,6 +152,21 @@ gorselleri depoda tutmak istemezseniz `.gitignore`'a
 
 Not: Depo private ise artifact'i yalnizca depoya erisimi olan hesaplar indirir.
 Surum etiketiyle de tetiklenir: `git tag v1.0.0 && git push --tags`.
+
+### 6.2 Git kurulu olmadan gonderim (dulwich)
+
+Bu makinede `git` yok; depo `dulwich` (saf Python) ile olusturuldu ve ilk commit
+atildi. Gonderim icin yalnizca bir GitHub token'i gerekir:
+
+```bash
+pip install dulwich
+KOZMO_TOKEN=*** python kozmo_push.py KULLANICI DEPO main
+```
+
+Token GitHub → Settings → Developer settings → Fine-grained tokens bolumunden
+uretilir; yalnizca ilgili depoya `Contents: Read and write` yetkisi verilir.
+Token komut satirina yazilmaz, ortam degiskeninden okunur ve hata mesajlarinda
+maskelenir. Gonderim sonrasi token'i iptal edip yenilemek en guvenlisidir.
 
 ## 7. Surum ve ozet
 
