@@ -255,3 +255,6 @@ ozet de degisir.
   ile basilir.
 - Mac paketi bu makinede uretilemez; GitHub Actions veya bir Mac gerekir.
 - Kod imzalama sertifikasi yoksa Windows SmartScreen ve macOS Gatekeeper uyarir.
+- Guncelleme icin `surum.json` ve zip'in barindirilacagi adres henuz
+  belirlenmedi; Sistem sekmesindeki `guncelleme_url` alani bos ise Guncelle
+  dugmesi "adres tanimli degil" uyarisi verir.
