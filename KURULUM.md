@@ -294,3 +294,9 @@ ozet de degisir.
 | Artifact | Is bitince uretilen indirilebilir dosya |
 | Gatekeeper | macOS'un imzasiz uygulama uyarisi |
 | SmartScreen | Windows'un imzasiz exe uyarisi |
+
+## 12. Destek
+
+Bir adimda takilirsaniz ekran goruntusunu veya hata metnini paylasin; token ve
+sifre gibi gizli degerleri maskeleyin. Hata metninde `github_pat_` veya `ghp_`
+ile baslayan bir dizi gorurseniz o token'i hemen iptal edin.
