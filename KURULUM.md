@@ -303,10 +303,10 @@ ile baslayan bir dizi gorurseniz o token'i hemen iptal edin.
 
 ## 13. Durum
 
-Yerel depo hazir: dal `main`, 287 dosya, son commit `7847f28a3d`. GitHub'a 286
+Yerel depo hazir: dal `main`, 287 dosya, son commit `1cfa9fafcb`. GitHub'a 286
 dosya gonderildi (commit `16f162962c`); `.github/workflows/build-macos.yml`
 dosyasi token'da `workflow` yetkisi olmadigi icin gonderilemedi. Token'a
-`workflow` yetkisi eklenip yeniden uretilince `7847f28a3d` fast-forward ile
+`workflow` yetkisi eklenip yeniden uretilince `1cfa9fafcb` fast-forward ile
 gonderilir. Windows paketi `KozmoStok-win.zip` hazir ve test edildi. Mac paketi
 GitHub Actions veya bir Mac gerektirir.
 
