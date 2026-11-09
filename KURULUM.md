@@ -33,7 +33,22 @@ kaldirmak icin kod imzalama sertifikasi (OV/EV) gerekir.
 
 ## 3. macOS kurulum
 
-### 3.0 Mac'te paket uretme (cift tikla)
+### 3.0 En kolay yol: hazir paketi GitHub'dan indir (derleme YOK)
+
+Kendi Mac'inde derlemeye gerek yok; GitHub zaten Mac paketini uretti:
+
+1. Tarayicidan `github.com/3rdem2/kozmostok` ac, giris yap.
+2. **Actions** sekmesine tikla → solda **macOS paket** → en ustteki yesil
+   tikli isleme gir.
+3. Sayfayi asagi kaydir → **Artifacts** bolumunden **KozmoStok-mac** dosyasini
+   indir (zip icinde `KozmoStok-mac.dmg` ve `KozmoStok-mac.zip` var).
+4. Icindeki `KozmoStok-mac.dmg` dosyasina cift tikla → acilan pencerede
+   `KozmoStok.app`'i **Applications** klasorune surukle → kurulum bitti.
+
+Not: bu paket Apple Silicon (M1/M2/M3/M4) Mac'ler icindir. Eski Intel Mac'te
+kullanmak icin asagidaki 3.1'deki yontemle Mac uzerinde derle.
+
+### 3.1 Mac'te paket uretme (cift tikla)
 
 Windows'taki `.bat` / `.cmd` dosyalari macOS'ta **calismaz**; cift tiklayinca
 "App Store'da uygulama ara" penceresi acilir. Mac'te paket uretmek icin
@@ -60,7 +75,7 @@ Terminalden ayni is:
 ./paketle_mac.command
 ```
 
-### 3.1 Hazir paketi kurma
+### 3.2 Hazir paketi kurma (kendi derlediysen)
 
 1. `KozmoStok-mac.zip` dosyasini acin, `KozmoStok.app` dosyasini
    **Applications** klasorune surukleyin.
