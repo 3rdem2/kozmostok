@@ -303,6 +303,17 @@ ile baslayan bir dizi gorurseniz o token'i hemen iptal edin.
 
 ## 13. Durum
 
-Yerel depo hazir: dal `main`, 287 dosya, son commit `d7e5775efc`. Push
-yapilmadi; token bekleniyor. Windows paketi `KozmoStok-win.zip` hazir ve test
-edildi. Mac paketi GitHub Actions veya bir Mac gerektirir.
+Yerel depo hazir: dal `main`, 287 dosya, son commit `d4eb5e7d9c`. GitHub'a 286
+dosya gonderildi (commit `16f162962c`); `.github/workflows/build-macos.yml`
+dosyasi token'da `workflow` yetkisi olmadigi icin gonderilemedi. Token'a
+`workflow` yetkisi eklenip yeniden uretilince `d4eb5e7d9c` fast-forward ile
+gonderilir. Windows paketi `KozmoStok-win.zip` hazir ve test edildi. Mac paketi
+GitHub Actions veya bir Mac gerektirir.
+
+### 13.1 Token yetkileri
+
+Klasik token (`ghp_...`) icin gereken kapsamlar: `repo` + `workflow`.
+`workflow` olmadan GitHub, `.github/workflows/` altindaki dosyalari iceren
+push'lari reddeder: "refusing to allow a Personal Access Token to create or
+update workflow ... without `workflow` scope". Fine-grained token'da karsiligi
+`Workflows: Read and write` iznidir.
