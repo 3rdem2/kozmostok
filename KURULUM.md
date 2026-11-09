@@ -179,6 +179,22 @@ https://github.com/settings/tokens/new → scope `repo` → `ghp_...`.
 Token komut satirina yazilmaz, ortam degiskeninden okunur ve hata mesajlarinda
 maskelenir. Gonderim sonrasi token'i iptal edip yenilemek en guvenlisidir.
 
+### 6.3 Token gorunmuyorsa
+
+Token formu doldurulup **Generate token** dugmesine basilmadan token olusmaz.
+Dugme formun en altindadir ve su kosullar saglanmadan pasif kalir: ad yazilmis,
+sure secilmis, depo secilmis, `Contents: Read and write` isaretlenmis. Token
+uretilince acilan sayfada `github_pat_...` kutusu ve kopyalama simgesi cikar;
+sayfa yenilenirse veya baska sayfaya gecilirse token bir daha gosterilmez,
+yenisi uretilmelidir. Kurum (organization) hesabinda token "Pending approval"
+durumunda kalabilir; bu durumda depo sahibinin onaylamasi gerekir.
+
+### 6.4 Token yerine tarayici girisi
+
+`git` kurulursa (Git for Windows, Git Credential Manager ile birlikte gelir)
+token gerekmez: `git push` komutu tarayici penceresi acar, GitHub'a giris
+yapilir ve kimlik bilgisi Windows Kimlik Bilgileri'nde saklanir.
+
 ## 7. Surum ve ozet
 
 | Surum | Paket | Boyut | sha256 |
