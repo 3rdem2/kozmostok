@@ -197,6 +197,12 @@ durumunda kalabilir; bu durumda depo sahibinin onaylamasi gerekir.
 token gerekmez: `git push` komutu tarayici penceresi acar, GitHub'a giris
 yapilir ve kimlik bilgisi Windows Kimlik Bilgileri'nde saklanir.
 
+### 6.5 Depo adi ve dal
+
+Yerel depo `main` dali uzerinde durur (GitHub varsayilani). Push komutunda dal
+belirtilmezse `main` kullanilir. Depo adi buyuk/kucuk harf duyarlidir; adres
+`https://github.com/KULLANICI/DEPO` bicimindedir.
+
 ## 7. Surum ve ozet
 
 | Surum | Paket | Boyut | sha256 |
