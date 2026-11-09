@@ -215,6 +215,11 @@ bos olmalidir; README eklenmisse once `git pull --rebase` gerekir.
 - [ ] Artifact `KozmoStok-mac` indirildi
 - [ ] Token iptal edildi
 
+### 6.7 Depo adresi ornegi
+
+`https://github.com/erdemtug/kozmostok` → kullanici `erdemtug`, depo `kozmostok`.
+Push komutu: `python kozmo_push.py erdemtug kozmostok main`.
+
 ## 7. Surum ve ozet
 
 | Surum | Paket | Boyut | sha256 |
