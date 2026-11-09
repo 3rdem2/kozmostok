@@ -15,6 +15,7 @@ kozmostok.db
 .abacusai/
 .venv/
 venv/
+.venv-mac/
 .DS_Store
 # Derleme ciktilari ve yerel kurulum klasorleri
 KozmoStok-win/

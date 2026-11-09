@@ -33,6 +33,35 @@ kaldirmak icin kod imzalama sertifikasi (OV/EV) gerekir.
 
 ## 3. macOS kurulum
 
+### 3.0 Mac'te paket uretme (cift tikla)
+
+Windows'taki `.bat` / `.cmd` dosyalari macOS'ta **calismaz**; cift tiklayinca
+"App Store'da uygulama ara" penceresi acilir. Mac'te paket uretmek icin
+`paketle_mac.command` dosyasina cift tiklayin:
+
+1. Dosyaya **cift tikla** → Terminal acilir, derleme baslar.
+2. Ilk calistirmada 2-4 dakika surer (bagimliliklar indirilir).
+3. Bitince `dist` klasoru Finder'da acilir: `KozmoStok.app`,
+   `KozmoStok-mac.zip`, `KozmoStok-mac.dmg` ve sha256 dosyalari.
+4. "Apple bu dosyayi dogrulayamadi" derse: dosyaya **sag tik → Ac → Ac**.
+   Ya da Terminal'de bir kez:
+
+```bash
+chmod +x paketle_mac.command
+xattr -dr com.apple.quarantine .
+```
+
+`python3` yoksa betik uyarir ve python.org adresini gosterir. Derleme
+`.venv-mac` sanal ortaminda yapilir; sistem Python'u kirlenmez.
+
+Terminalden ayni is:
+
+```bash
+./paketle_mac.command
+```
+
+### 3.1 Hazir paketi kurma
+
 1. `KozmoStok-mac.zip` dosyasini acin, `KozmoStok.app` dosyasini
    **Applications** klasorune surukleyin.
 2. Ilk acilis: uygulamaya **sag tik → Ac → Ac**. (Cift tik Gatekeeper
