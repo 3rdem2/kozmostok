@@ -1,0 +1,5 @@
+PyQt6>=6.6.0
+openpyxl>=3.1.0
+psycopg2-binary>=2.9.9
+python-barcode>=0.15.1
+pillow>=10.0.0

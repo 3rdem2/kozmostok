@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec.bak
+*.zip
+*.exe
+!paketle_win.bat
+logs/
+raporlar/
+yedekler/
+etiketler/
+db/
+kozmostok.db
+.abacusai/
+.venv/
+venv/
+.DS_Store
+# Derleme ciktilari ve yerel kurulum klasorleri
+KozmoStok-win/
+KozmoStok-win.zip
+dist/
+build/
+# Yerel veritabani / gecici dosyalar
+*.log
+*.tmp
+# Git ic dosyalari
+.git-credentials
+# Eski/yinelenen klasor kopyalari (kullanilmiyor)
+ui/ui/
+core/core/
