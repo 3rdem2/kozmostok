@@ -140,10 +140,8 @@ class MainWindow(QMainWindow):
             self.stack.addWidget(self.magaza_ekrani)
         self.magaza_ekrani.kullanici_adi = kullanici.get("kullanici_adi") or ""
         self.magaza_ekrani.kullanici_adi = kullanici.get("kullanici_adi") or ""
-        if self.yonetim_ekrani is None:
-            self.yonetim_ekrani = YonetimPaneli()
-            self.stack.addWidget(self.yonetim_ekrani)
-        self.yonetim_ekrani.kullanici_adi = kullanici.get("kullanici_adi") or ""
+        if self.yonetim_ekrani is not None:
+            self.yonetim_ekrani.kullanici_adi = kullanici.get("kullanici_adi") or ""
         # Kasiyer sadece magaza; yonetici magaza ile baslar
         self.magaza_goster()
         yonetici = kullanici.get("rol") == "yonetici"
@@ -224,6 +222,10 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Yetki", "Yonetim sadece yoneticiler icin.")
                 return
             # Admin/yonetici zaten giris yapti — ikinci PIN yok
+            if self.yonetim_ekrani is None:
+                self.yonetim_ekrani = YonetimPaneli()
+                self.stack.addWidget(self.yonetim_ekrani)
+            self.yonetim_ekrani.kullanici_adi = (self.kullanici or {}).get("kullanici_adi") or ""
             self.stack.setCurrentWidget(self.yonetim_ekrani)
             self.lbl_baslik.setText("KOZMOSIZE foreverunderground  ·  Yonetim")
             if hasattr(self.yonetim_ekrani, "yenile"):

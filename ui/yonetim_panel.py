@@ -3,6 +3,7 @@
 Yonetim paneli - Urun, stok, kanallar, raporlar
 """
 
+import time
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
@@ -717,7 +718,9 @@ class YonetimPaneli(QWidget):
         self.tabs.addTab(SistemSayfasi(), "Sistem")
         self.tabs.currentChanged.connect(self._tab_degisti)
         ana.addWidget(self.tabs)
-        self.yenile()
+        self._urun_cache = None
+        self._cache_zaman = 0.0
+        QTimer.singleShot(0, self.yenile)
         self._hatirlatma_gosterildi = False
 
     def showEvent(self, event):
@@ -783,22 +786,22 @@ class YonetimPaneli(QWidget):
         self.arama.setClearButtonEnabled(True)
         self.arama.setMinimumWidth(240)
         self.arama.setStyleSheet(_gctrl())
-        self.arama.returnPressed.connect(self.yenile)
+        self.arama.returnPressed.connect(lambda: self.yenile(yerel=True))
         self._arama_timer = __import__("PyQt6.QtCore", fromlist=["QTimer"]).QTimer(self)
         self._arama_timer.setSingleShot(True)
-        self._arama_timer.timeout.connect(self.yenile)
+        self._arama_timer.timeout.connect(lambda: self.yenile(yerel=True))
         self.arama.textChanged.connect(lambda _: self._arama_timer.start(250))
         ust.addWidget(self.arama, 1)
 
         self.cmb_kategori = QComboBox()
         self.cmb_kategori.setMinimumWidth(140)
         self.cmb_kategori.setStyleSheet(_gctrl())
-        self.cmb_kategori.currentIndexChanged.connect(self.yenile)
+        self.cmb_kategori.currentIndexChanged.connect(lambda: self.yenile(yerel=True))
         ust.addWidget(self.cmb_kategori)
 
         btn_ara = QPushButton("Ara")
         btn_ara.setObjectName("birincil")
-        btn_ara.clicked.connect(self.yenile)
+        btn_ara.clicked.connect(lambda: self.yenile(yerel=True))
         ust.addWidget(btn_ara)
         ust.addStretch()
         self.lbl_sayac = QLabel("0 urun")
@@ -814,7 +817,7 @@ class YonetimPaneli(QWidget):
             ("Düzenle", self.duzenle_urun, "ikincil"),
             ("Ürünü Sil", self.urun_sil_ui, "tehlike"),
             ("Ürünü Çoğalt", self.urun_cogalt_ui, "ikincil"),
-            ("Yenile", self.yenile, "ikincil"),
+            ("Yenile", lambda: self.yenile(zorla=True), "ikincil"),
             ("Excel çıktı", self.stok_excel, "ikincil"),
         ):
             btn = QPushButton(etiket)
@@ -921,15 +924,49 @@ class YonetimPaneli(QWidget):
                 self.cmb_kategori.setCurrentIndex(0)
         self.cmb_kategori.blockSignals(False)
 
-    def yenile(self, sessiz: bool = False):
+    def _urun_cache_yukle(self):
+        self._urun_cache = urunleri_listele()
+        self._cache_zaman = time.time()
+
+    def _urunleri_yerel_filtrele(self, arama: str, kat_id):
+        """Onbellekte ad/kod/barkod + kategori filtresi; DB'deki aile mantigini taklit eder."""
+        satirlar = self._urun_cache or []
+        metin = (arama or "").strip().lower()
+        eslesen = set()
+        for u in satirlar:
+            if metin:
+                saman = " ".join(filter(None, [u.get("ad"), u.get("stok_kodu"), u.get("barkod")])).lower()
+                b_norm = (u.get("barkod") or "").replace("KZM-", "").replace(" ", "").lower()
+                if metin not in saman and metin not in b_norm:
+                    continue
+            eslesen.add(int(u.get("id") or 0))
+            if u.get("parent_id"):
+                eslesen.add(int(u["parent_id"]))
+        sonuc = []
+        for u in satirlar:
+            pid = u.get("parent_id")
+            if int(u.get("id") or 0) not in eslesen and not (pid and int(pid) in eslesen):
+                continue
+            if kat_id and int(u.get("kategori_id") or 0) != int(kat_id):
+                continue
+            sonuc.append(u)
+        return sonuc
+
+    def yenile(self, sessiz: bool = False, yerel: bool = False, zorla: bool = False):
         try:
             from PyQt6.QtWidgets import QApplication
             QApplication.processEvents()
-            # Kategorileri her seferinde sifirdan secimi bozmadan guncelle
-            self._kategorileri_doldur(koru_secim=True)
+            yasa = time.time() - self._cache_zaman
+            yukle = zorla or self._urun_cache is None or (not yerel and yasa > 60.0)
+            if yukle:
+                self._urun_cache_yukle()
+                self._kategorileri_doldur(koru_secim=True)
             arama = self.arama.text().strip() if hasattr(self, "arama") else ""
             kat_id = self.cmb_kategori.currentData() if hasattr(self, "cmb_kategori") else None
-            urunler = urunleri_listele(arama=arama, kategori_id=kat_id)
+            urunler = self._urunleri_yerel_filtrele(arama, kat_id)
+            if not urunler and arama and not yerel:
+                # Eski barkod / birlesmis kayit ailesi sadece DB'de bulunur
+                urunler = urunleri_listele(arama=arama, kategori_id=kat_id)
             # Ana barkod altinda topla: parent_id olanlari gizle, ana satira varyant ozeti
             cocuklar = {}
             for u in urunler:
@@ -1013,7 +1050,7 @@ class YonetimPaneli(QWidget):
     def yeni_urun(self):
         dlg = UrunFormDialog(self)
         if dlg.exec():
-            self.yenile()
+            self.yenile(zorla=True)
 
     def urun_cogalt_ui(self):
         try:
@@ -1030,7 +1067,7 @@ class YonetimPaneli(QWidget):
             ok2, msg = urun_cogalt(uid, beden=ek.strip(), varyant_eki=ek.strip())
             if ok2:
                 QMessageBox.information(self, "Tamam", msg)
-                self.yenile()
+                self.yenile(zorla=True)
             else:
                 QMessageBox.warning(self, "Hata", msg)
         except Exception as e:
@@ -1045,7 +1082,7 @@ class YonetimPaneli(QWidget):
                 return
             dlg = VaryantDialog(self, uid)
             if dlg.exec() == QDialog.DialogCode.Accepted:
-                self.yenile()
+                self.yenile(zorla=True)
         except Exception as e:
             log_error("Varyant UI", e, __file__, "varyant_ekle_ui")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1072,7 +1109,7 @@ class YonetimPaneli(QWidget):
                     self, "Tamam",
                     f"Duzeltilen: {r.get('duzeltilen', 0)} / {r.get('toplam', 0)}"
                 )
-                self.yenile()
+                self.yenile(zorla=True)
         except Exception as e:
             log_error("Barkod kontrol", e, __file__, "barkod_kontrol_ui")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1107,7 +1144,7 @@ class YonetimPaneli(QWidget):
                 if ok:
                     silinen += 1
             QMessageBox.information(self, "Tamam", f"{silinen}/{len(ids)} urun cikarildi")
-            self.yenile()
+            self.yenile(zorla=True)
         except Exception as e:
             log_error("Urun sil UI", e, __file__, "urun_sil_ui")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1115,7 +1152,7 @@ class YonetimPaneli(QWidget):
     def denetci_ac(self):
         from ui.denetci_ekrani import DenetciDialog
         DenetciDialog(self).exec()
-        self.yenile(sessiz=True)
+        self.yenile(sessiz=True, zorla=True)
 
     def barkod_olustur_ui(self):
         try:
@@ -1145,7 +1182,7 @@ class YonetimPaneli(QWidget):
             (QMessageBox.information if r.get("ok") else QMessageBox.warning)(
                 self, "Barkod Olustur", msg
             )
-            self.yenile()
+            self.yenile(zorla=True)
         except Exception as e:
             log_error("Barkod olustur UI", e, __file__, "barkod_olustur_ui")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1157,7 +1194,7 @@ class YonetimPaneli(QWidget):
             return
         dlg = UrunFormDialog(self, urun_id=uid)
         if dlg.exec():
-            self.yenile()
+            self.yenile(zorla=True)
 
     def stok_duzelt_ac(self):
         uid = self._secili_id()
@@ -1167,7 +1204,7 @@ class YonetimPaneli(QWidget):
         ad = self.tablo.item(self.tablo.selectionModel().selectedRows()[0].row(), 5)
         dlg = StokDuzeltDialog(self, uid, ad.text() if ad else "")
         if dlg.exec():
-            self.yenile()
+            self.yenile(zorla=True)
 
     def gun_sonu(self):
         try:
@@ -1205,7 +1242,7 @@ class YonetimPaneli(QWidget):
                 return
             r = barkodlari_yeni_formata_cevir()
             QMessageBox.information(self, "Sonuc", r.get("mesaj") or str(r))
-            self.yenile()
+            self.yenile(zorla=True)
         except Exception as e:
             log_error("Barkod format UI", e, __file__, "barkod_yeni_format_ui")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1220,7 +1257,7 @@ class YonetimPaneli(QWidget):
                 f"{sonuc['mesaj']}\n\nKlasor:\n{klasor}\n\n"
                 "Dosya adini stok kodu veya barkod yapin.\nOrnek: KZM-1026001.jpg"
             )
-            self.yenile()
+            self.yenile(zorla=True)
         except Exception as e:
             log_error("Gorsel esle UI", e, __file__, "YonetimPaneli.gorsel_esle")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1242,7 +1279,7 @@ class YonetimPaneli(QWidget):
                 return
             sonuc = stok_excel_yukle(yol)
             QMessageBox.information(self, "Sonuc", sonuc.get("mesaj", ""))
-            self.yenile()
+            self.yenile(zorla=True)
         except Exception as e:
             log_error("Stok excel UI", e, __file__, "stok_excel_yukle_ui")
             QMessageBox.critical(self, "Hata", str(e))
@@ -1295,7 +1332,7 @@ class YonetimPaneli(QWidget):
             sonuc = wix_csv_aktar(yol)
             if sonuc["ok"]:
                 QMessageBox.information(self, "Aktarim", sonuc["mesaj"])
-                self.yenile()
+                self.yenile(zorla=True)
             else:
                 QMessageBox.critical(self, "Hata", sonuc["mesaj"])
         except Exception as e:

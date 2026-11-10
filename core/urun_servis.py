@@ -10,6 +10,8 @@ from datetime import datetime
 
 from core.database import get_connection, barkod_uret, barkod_stoktan, barkod_varyant, barkod_varyant_ek, barkod_normalize, stok_kodundan_sayi, sonraki_stok_sira
 import time
+import time as _time
+import threading
 import sqlite3
 
 
@@ -1115,6 +1117,86 @@ def ana_urunleri_listele(arama: str = "", kategori_id=None) -> list:
     except Exception as e:
         log_error("Ana urun liste", e, __file__, "ana_urunleri_listele")
         return []
+
+
+_URUN_CACHE: dict | None = None
+_URUN_CACHE_KILIT = threading.Lock()
+
+
+def _urun_cache_yaz(satirlar: list) -> None:
+    global _URUN_CACHE
+    with _URUN_CACHE_KILIT:
+        _URUN_CACHE = {"zaman": _time.time(), "satirlar": satirlar}
+
+
+def urun_cache_satirlari() -> list | None:
+    """Onbellekteki tum aktif urunler; onbellek hic dolmadiysa None."""
+    c = _URUN_CACHE
+    return list(c["satirlar"]) if c else None
+
+
+def urun_cache_tazele() -> bool:
+    """Tum aktif urunleri TEK sorguda ceker ve onbellege yazar."""
+    try:
+        satirlar = urunleri_listele()
+        _urun_cache_yaz(satirlar)
+        return True
+    except Exception as e:
+        log_error("Urun onbellegi yenilenemedi", e, __file__, "urun_cache_tazele")
+        return False
+
+
+def urun_cache_tazele_async(maks_yas: float = 60.0) -> None:
+    """Onbellek bos/eski ise arka planda tazeler (UI kilitlemeden)."""
+    c = _URUN_CACHE
+    if c is not None and _time.time() - c["zaman"] <= maks_yas:
+        return
+    threading.Thread(target=urun_cache_tazele, daemon=True, name="KozmoStok-urun-onbellek").start()
+
+
+def urun_cache_sifirla() -> None:
+    global _URUN_CACHE
+    _URUN_CACHE = None
+
+
+def urun_cache_stok_dus(urun_id: int, adet: int) -> None:
+    """Satis sonrasi onbellekteki stoku yerelden dusurur; urun onbellemde yoksa onbellegi sifirlar."""
+    c = _URUN_CACHE
+    if not c:
+        return
+    for u in c["satirlar"]:
+        if int(u.get("id") or 0) == int(urun_id):
+            u["stok_adedi"] = int(u.get("stok_adedi") or 0) - int(adet)
+            return
+    urun_cache_sifirla()
+
+
+def _norm_kod(s: str) -> str:
+    return (s or "").replace("KZM-", "").replace(" ", "").lower()
+
+
+def ana_urunleri_yerel(arama: str = "", kategori_id=None, limit: int = 40) -> list:
+    """Magaza aramasi: internete gitmeden onbellekte filtreler (ana urunler)."""
+    global _URUN_CACHE
+    c = _URUN_CACHE
+    if c is None:
+        if not urun_cache_tazele():
+            return ana_urunleri_listele(arama=arama, kategori_id=kategori_id)
+        c = _URUN_CACHE
+    metin = (arama or "").strip().lower()
+    sonuc = []
+    for u in c["satirlar"]:
+        if u.get("parent_id"):
+            continue
+        if kategori_id and int(u.get("kategori_id") or 0) != int(kategori_id):
+            continue
+        if metin:
+            saman = " ".join(filter(None, [u.get("ad"), u.get("stok_kodu"), u.get("barkod")])).lower()
+            if metin not in saman and metin not in _norm_kod(u.get("barkod")):
+                continue
+        sonuc.append(u)
+    sonuc.sort(key=lambda x: (x.get("ad") or "").lower())
+    return sonuc[:limit]
 
 
 def barkodlari_yeni_formata_cevir() -> dict:

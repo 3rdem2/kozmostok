@@ -24,7 +24,11 @@ from core.satis_servis import (
     gunluk_ozet, bugunku_satislar, yeni_fis_no,
     bugunku_masraflar, masraf_sil, fis_iade,
 )
-from core.urun_servis import kategorileri_listele, varyantlari_listele, ana_urunleri_listele
+from core.urun_servis import (
+    kategorileri_listele, varyantlari_listele,
+    urun_cache_tazele_async, ana_urunleri_yerel, urun_cache_satirlari,
+    urun_cache_stok_dus, urun_cache_sifirla,
+)
 from core.rapor_servis import gun_sonu_excel
 from core.kullanici_servis import pin_dogrula
 from core.logger import log_error
@@ -120,7 +124,10 @@ class MagazaEkrani(QWidget):
         self._arama_timer.setSingleShot(True)
         self._arama_timer.timeout.connect(self._otomatik_ara)
         self._ui_olustur()
-        self.yenile_hepsi()
+        try:
+            urun_cache_tazele_async(maks_yas=0)
+        except Exception:
+            pass
         self._uyari_timer.start()
         QTimer.singleShot(200, self.arama_edit.setFocus)
 
@@ -466,6 +473,26 @@ class MagazaEkrani(QWidget):
             return
         self._arama_timer.start(180)
 
+    def _kod_benzeri(self, metin: str) -> bool:
+        """Barkod/stok koduna benzeyen giris (varyant barkodu icin DB yedegi)."""
+        metin = (metin or "").strip()
+        return len(metin) >= 6 and " " not in metin
+
+    def _yerel_kod_eslesmesi(self, metin: str):
+        """Onbellekte barkod/stok kodu tam eslesmesi (0 ag gezisi); yoksa None."""
+        metin = (metin or "").strip().lower()
+        if not metin:
+            return None
+        m_norm = metin.replace("kzm-", "").replace(" ", "")
+        for u in (urun_cache_satirlari() or []):
+            b = (u.get("barkod") or "").strip().lower()
+            k = (u.get("stok_kodu") or "").strip().lower()
+            if metin in (b, k):
+                return u
+            if m_norm and m_norm == b.replace("KZM-", "").replace(" ", "").lower():
+                return u
+        return None
+
     def _otomatik_ara(self):
         """Yazarken anlik: cubugun altinda oneri listesi (modal yok)."""
         try:
@@ -474,13 +501,19 @@ class MagazaEkrani(QWidget):
                 self._oneri_gizle()
                 return
             # Tam barkod/kod eslesmesi — listeye de koy, Enter ile eklenir
+            try:
+                urun_cache_tazele_async(maks_yas=60)
+            except Exception:
+                pass
             kat = self.cmb_kategori.currentData()
-            u = urun_bul_kod(metin)
+            u = self._yerel_kod_eslesmesi(metin)
+            if u is None and self._kod_benzeri(metin):
+                u = urun_bul_kod(metin)
             if u:
                 # Varyant barkodu okutulduysa ana urune cevir
                 oneriler = [self._ana_urune_cevir(u)]
             else:
-                oneriler = ana_urunleri_listele(arama=metin, kategori_id=kat)
+                oneriler = ana_urunleri_yerel(arama=metin, kategori_id=kat)
             self._oneri_doldur(oneriler)
         except Exception as e:
             log_error("Otomatik arama", e, __file__, "MagazaEkrani._otomatik_ara")
@@ -603,7 +636,7 @@ class MagazaEkrani(QWidget):
             if not kat:
                 self._oneri_gizle()
                 return
-            oneriler = ana_urunleri_listele(arama="", kategori_id=kat)
+            oneriler = ana_urunleri_yerel(arama="", kategori_id=kat)
             self._oneri_doldur(oneriler)
         except Exception as e:
             log_error("Kategori urun", e, __file__, "MagazaEkrani._kategori_urunlerini_goster")
@@ -646,7 +679,9 @@ class MagazaEkrani(QWidget):
                 else:
                     self._oneri_gizle()
                 return
-            u = urun_bul_kod(metin)
+            u = self._yerel_kod_eslesmesi(metin)
+            if u is None and self._kod_benzeri(metin):
+                u = urun_bul_kod(metin)
             if u:
                 self._oneri_gizle()
                 self.arama_edit.clear()
@@ -654,7 +689,7 @@ class MagazaEkrani(QWidget):
                 self.arama_edit.setFocus()
                 return
             kat = self.cmb_kategori.currentData()
-            oneriler = ana_urunleri_listele(arama=metin, kategori_id=kat)
+            oneriler = ana_urunleri_yerel(arama=metin, kategori_id=kat)
             if not oneriler:
                 self._oneri_gizle()
                 self.mesaj("Urun bulunamadi", False)
@@ -1119,6 +1154,7 @@ class MagazaEkrani(QWidget):
                     )
                     if ok:
                         basarili += 1
+                        urun_cache_stok_dus(int(item["urun_id"]), int(item["adet"]))
                     else:
                         self.mesaj(msg, False)
                         break
@@ -1130,6 +1166,7 @@ class MagazaEkrani(QWidget):
                     )
                     if ok:
                         basarili += 1
+                        urun_cache_stok_dus(int(item["urun_id"]), int(item["adet"]))
                     else:
                         self.mesaj(msg, False)
                         break
@@ -1204,6 +1241,8 @@ class MagazaEkrani(QWidget):
         try:
             ok, msg = fis_iade(fis_no)
             self.mesaj(msg, ok)
+            if ok:
+                urun_cache_sifirla()
             self.yenile_hepsi()
         except Exception as e:
             log_error("Iade", e, __file__, "MagazaEkrani.satis_secili_iade")
