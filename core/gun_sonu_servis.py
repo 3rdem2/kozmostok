@@ -379,11 +379,70 @@ def _excel_icerik(kayit: dict) -> bytes:
         ws.cell(satir, 1, "Notlar").font = kalin
         ws.cell(satir + 1, 1, str(kayit.get("notlar")))
 
+    from core.log_servis import vardiya_listesi
+
+    satir += 2
+    ws.cell(satir, 1, "VARDIYA OZETI").font = kalin
+    satir += 1
+    for i, h in enumerate(("Kullanici", "Giris", "Cikis"), start=1):
+        c = ws.cell(satir, i, h)
+        c.font = beyaz
+        c.fill = dolgu
+        c.alignment = Alignment(horizontal="center")
+    satir += 1
+    for v in vardiya_listesi(str(kayit.get("tarih") or "")):
+        ws.cell(satir, 1, v.get("kullanici") or "")
+        ws.cell(satir, 2, f"{v.get('giris_tarihi') or ''} {(v.get('giris_saati') or '')[:5]}")
+        ws.cell(
+            satir, 3,
+            f"{v.get('cikis_tarihi') or ''} {(v.get('cikis_saati') or 'acik')[:5]}".strip(),
+        )
+        satir += 1
+
+    satir += 1
+    ws.cell(satir, 1, "SATILAN URUNLER").font = kalin
+    satir += 1
+    for i, h in enumerate(("Saat", "Stok Kodu", "Urun", "Adet", "Birim", "Indirim", "Toplam"), start=1):
+        c = ws.cell(satir, i, h)
+        c.font = beyaz
+        c.fill = dolgu
+        c.alignment = Alignment(horizontal="center")
+    satir += 1
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT s.satis_saati, u.stok_kodu, u.ad, s.adet, s.birim_fiyat,
+                      s.indirim, s.toplam
+               FROM satislar s JOIN urunler u ON u.id = s.urun_id
+               WHERE s.satis_tarihi = ? ORDER BY s.id""",
+            (str(kayit.get("tarih") or ""),),
+        )
+        satilan = [dict(r) for r in cur.fetchall()]
+        conn.close()
+    except Exception as e:
+        log_error("Gun sonu satilanlar", e, __file__, "_excel_icerik")
+        satilan = []
+    for s2 in satilan:
+        ws.cell(satir, 1, s2.get("satis_saati") or "")
+        ws.cell(satir, 2, s2.get("stok_kodu") or "")
+        ws.cell(satir, 3, s2.get("ad") or "")
+        ws.cell(satir, 4, float(s2.get("adet") or 0))
+        c = ws.cell(satir, 5, float(s2.get("birim_fiyat") or 0))
+        c.number_format = "#,##0.00"
+        c = ws.cell(satir, 6, float(s2.get("indirim") or 0))
+        c.number_format = "#,##0.00"
+        c = ws.cell(satir, 7, float(s2.get("toplam") or 0))
+        c.number_format = "#,##0.00"
+        satir += 1
+
     ws.column_dimensions["A"].width = 26
     ws.column_dimensions["B"].width = 16
     ws.column_dimensions["C"].width = 14
     ws.column_dimensions["D"].width = 10
     ws.column_dimensions["E"].width = 34
+    ws.column_dimensions["F"].width = 12
+    ws.column_dimensions["G"].width = 12
 
     buf = io.BytesIO()
     wb.save(buf)

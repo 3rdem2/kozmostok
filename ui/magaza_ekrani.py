@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
     QCheckBox, QRadioButton, QButtonGroup, QInputDialog,
     QScrollArea, QGridLayout,
 )
-from PyQt6.QtCore import Qt, QTimer, QSize, QEvent
+from PyQt6.QtCore import Qt, QTimer, QSize, QEvent, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QPixmap, QIcon, QCursor
 
 from core.satis_servis import (
@@ -30,7 +30,10 @@ from core.urun_servis import (
     urun_cache_stok_dus, urun_cache_sifirla,
 )
 from core.rapor_servis import gun_sonu_excel
-from core.kullanici_servis import pin_dogrula
+from core.kullanici_servis import giris_yap, pin_dogrula
+from core.log_servis import (
+    aktif_kullanicilar, islem_kaydet, vardiya_ac, vardiya_kapat_adi,
+)
 from core.logger import log_error
 from core.kanal_servis import magaza_kritik_uyarilari, kritik_kanal_uyarilari, bekleyen_ayirmalar, bekleyen_ayirma_yap
 
@@ -116,6 +119,7 @@ class MagazaEkrani(QWidget):
         self.sepet: list[dict] = []  # {urun_id, ad, fiyat, adet, barkod, secili}
         self._ind_lock = False
         self.kullanici_adi = ""
+        self.aktif_kullanici = ""
         self._bekleyen: list[dict] = []
         self._uyari_timer = QTimer(self)
         self._uyari_timer.setInterval(10000)
@@ -177,6 +181,27 @@ class MagazaEkrani(QWidget):
         btn_ara.setFixedSize(88, CTRL_H)
         btn_ara.clicked.connect(self._enter_ara)
         ust_ara.addWidget(btn_ara)
+        # Hos geldin notu — manuel kapanir, 5 sn sonra kendiliginden kapanir
+        self.hosgeldin_bandi = QFrame()
+        self.hosgeldin_bandi.setStyleSheet(
+            f"QFrame {{ background:{OK}; border:1px solid {BORDER}; border-radius:2px; }}"
+        )
+        hg = QHBoxLayout(self.hosgeldin_bandi)
+        hg.setContentsMargins(10, 6, 6, 6)
+        self.lbl_hosgeldin = QLabel("")
+        self.lbl_hosgeldin.setStyleSheet(
+            "color:#000000; font-size:11pt; font-weight:800; border:none;"
+        )
+        hg.addWidget(self.lbl_hosgeldin)
+        hg.addStretch()
+        btn_hg = QPushButton("Kapat")
+        btn_hg.setFixedSize(64, 24)
+        btn_hg.setStyleSheet(_btn("ikincil"))
+        btn_hg.clicked.connect(self.hosgeldin_kapat)
+        hg.addWidget(btn_hg)
+        self.hosgeldin_bandi.hide()
+        sol.addWidget(self.hosgeldin_bandi)
+
         # Bekleyen kanal ayirma uyarilari: "Ayir" ile stok dusulmeden kapanmaz
         self.uyari_bandi = QFrame()
         self.uyari_bandi.setStyleSheet(
@@ -342,6 +367,59 @@ class MagazaEkrani(QWidget):
         # ==== SAG ====
         sag = QVBoxLayout()
         sag.setSpacing(6)
+
+        # Ek kullanici girisi / cikisi — vardiya takibi
+        ek_frame = QFrame()
+        ek_frame.setStyleSheet(
+            f"QFrame {{ background:{PANEL}; border:1px solid {BORDER}; border-radius:2px; }}"
+        )
+        ef = QVBoxLayout(ek_frame)
+        ef.setContentsMargins(8, 6, 8, 6)
+        ef.setSpacing(4)
+        ef.addWidget(self._baslik("EK KULLANICI GIRISI / CIKISI"))
+        r1 = QHBoxLayout()
+        r1.setSpacing(6)
+        self.ek_adi = QLineEdit()
+        self.ek_adi.setPlaceholderText("Kullanici adi")
+        self.ek_adi.setFixedHeight(CTRL_H)
+        self.ek_adi.setStyleSheet(_ctrl_ss())
+        r1.addWidget(self.ek_adi, 1)
+        self.ek_sifre = QLineEdit()
+        self.ek_sifre.setPlaceholderText("Sifre")
+        self.ek_sifre.setEchoMode(QLineEdit.EchoMode.Password)
+        self.ek_sifre.setFixedHeight(CTRL_H)
+        self.ek_sifre.setStyleSheet(_ctrl_ss())
+        self.ek_sifre.returnPressed.connect(self.ek_giris)
+        r1.addWidget(self.ek_sifre, 1)
+        btn_ek = QPushButton("Giris")
+        btn_ek.setStyleSheet(_btn("ok"))
+        btn_ek.setFixedHeight(CTRL_H)
+        btn_ek.clicked.connect(self.ek_giris)
+        r1.addWidget(btn_ek)
+        ef.addLayout(r1)
+        r2 = QHBoxLayout()
+        r2.setSpacing(6)
+        self.cmb_cikis = QComboBox()
+        self.cmb_cikis.setFixedHeight(CTRL_H)
+        self.cmb_cikis.setStyleSheet(_ctrl_ss())
+        r2.addWidget(self.cmb_cikis, 1)
+        self.cikis_sifre = QLineEdit()
+        self.cikis_sifre.setPlaceholderText("Sifre")
+        self.cikis_sifre.setEchoMode(QLineEdit.EchoMode.Password)
+        self.cikis_sifre.setFixedHeight(CTRL_H)
+        self.cikis_sifre.setStyleSheet(_ctrl_ss())
+        self.cikis_sifre.returnPressed.connect(self.ek_cikis)
+        r2.addWidget(self.cikis_sifre, 1)
+        btn_ck = QPushButton("Cikis")
+        btn_ck.setStyleSheet(_btn("tehlike"))
+        btn_ck.setFixedHeight(CTRL_H)
+        btn_ck.clicked.connect(self.ek_cikis)
+        r2.addWidget(btn_ck)
+        ef.addLayout(r2)
+        self.lbl_aktif = QLabel("Aktif: -")
+        self.lbl_aktif.setStyleSheet(f"background:transparent; color:{ACCENT}; font-size:11px;")
+        ef.addWidget(self.lbl_aktif)
+        sag.addWidget(ek_frame)
 
         # Satilanlar tablosu
         sag.addWidget(self._baslik("Bugun satilanlar"))
@@ -1171,6 +1249,10 @@ class MagazaEkrani(QWidget):
                         self.mesaj(msg, False)
                         break
             if basarili:
+                islem_kaydet(
+                    self.aktif_kullanici or self.kullanici_adi or "-",
+                    "satis", f"{basarili} urun",
+                )
                 self.mesaj(f"Tamam — {basarili} urun satildi")
                 self.sepet.clear()
                 self.spin_indirim.setValue(0)
@@ -1242,6 +1324,10 @@ class MagazaEkrani(QWidget):
             ok, msg = fis_iade(fis_no)
             self.mesaj(msg, ok)
             if ok:
+                islem_kaydet(
+                    self.aktif_kullanici or self.kullanici_adi or "-",
+                    "iade", f"Fis {fis_no}",
+                )
                 urun_cache_sifirla()
             self.yenile_hepsi()
         except Exception as e:
@@ -1265,6 +1351,83 @@ class MagazaEkrani(QWidget):
         except Exception as e:
             log_error("Masraf sil", e, __file__, "MagazaEkrani.masraf_secili_sil")
             self.mesaj(str(e), False)
+
+    # ---- hos geldin notu
+    def hos_geldin(self, adi: str):
+        try:
+            self.lbl_hosgeldin.setText(f"Hos geldin, {adi}")
+            self.hosgeldin_bandi.show()
+            if getattr(self, "_hosgeldin_timer", None):
+                self._hosgeldin_timer.stop()
+            else:
+                self._hosgeldin_timer = QTimer(self)
+                self._hosgeldin_timer.setSingleShot(True)
+                self._hosgeldin_timer.timeout.connect(self.hosgeldin_bandi.hide)
+            self._hosgeldin_timer.start(5000)
+        except Exception as e:
+            log_error("Hos geldin", e, __file__, "MagazaEkrani.hos_geldin")
+
+    def hosgeldin_kapat(self):
+        if getattr(self, "_hosgeldin_timer", None):
+            self._hosgeldin_timer.stop()
+        self.hosgeldin_bandi.hide()
+
+    # ---- ek kullanici girisi / cikisi
+    def ek_giris(self):
+        adi = self.ek_adi.text().strip()
+        sifre = self.ek_sifre.text().strip()
+        if not adi or not sifre:
+            self.mesaj("Kullanici adi ve sifre girin", False)
+            return
+        ok, sonuc = giris_yap(adi, sifre)
+        if not ok:
+            self.mesaj(str(sonuc), False)
+            return
+        oturum = vardiya_ac(adi, sonuc.get("id"))
+        islem_kaydet(adi, "ek_giris", "Magaza ek kullanici girisi", sonuc.get("id"))
+        self.aktif_kullanici = adi
+        self.ek_adi.clear()
+        self.ek_sifre.clear()
+        self.hos_geldin(adi)
+        self.aktif_yenile()
+        self.ek_giris_yapildi.emit(adi, int(oturum or 0))
+        self.mesaj(f"{adi} magaza oturumuna eklendi")
+
+    def ek_cikis(self):
+        adi = self.cmb_cikis.currentText().strip()
+        sifre = self.cikis_sifre.text().strip()
+        if not adi:
+            self.mesaj("Cikis yapacak kullaniciyi secin", False)
+            return
+        if not pin_dogrula(sifre, adi):
+            self.mesaj("Sifre yanlis", False)
+            return
+        vardiya_kapat_adi(adi)
+        islem_kaydet(adi, "cikis", "Magaza kullanici cikisi")
+        self.cikis_sifre.clear()
+        if self.aktif_kullanici == adi:
+            self.aktif_kullanici = self.kullanici_adi
+        self.aktif_yenile()
+        self.ek_cikis_yapildi.emit(adi, 0)
+        self.mesaj(f"{adi} cikis yapti")
+
+    def aktif_yenile(self):
+        try:
+            satirlar = aktif_kullanicilar()
+            adlar = " · ".join(
+                f"{r.get('kullanici') or '-'} ({(r.get('giris_saati') or '')[:5]})"
+                for r in satirlar
+            )
+            self.lbl_aktif.setText("Aktif: " + (adlar or "-"))
+            secim = self.cmb_cikis.currentText()
+            self.cmb_cikis.clear()
+            ad_listesi = sorted({r.get("kullanici") or "" for r in satirlar} - {""})
+            self.cmb_cikis.addItems(ad_listesi)
+            i = self.cmb_cikis.findText(secim)
+            if i >= 0:
+                self.cmb_cikis.setCurrentIndex(i)
+        except Exception as e:
+            log_error("Aktif liste", e, __file__, "MagazaEkrani.aktif_yenile")
 
     def ozet_yenile(self):
         try:
@@ -1344,6 +1507,7 @@ class MagazaEkrani(QWidget):
         self.satis_listesi_yenile()
         self.masraf_listesi_yenile()
         self._bekleyen_yenile()
+        self.aktif_yenile()
         # stok uyari bandi kaldirildi
 
     # ---- bekleyen kanal ayirmalari

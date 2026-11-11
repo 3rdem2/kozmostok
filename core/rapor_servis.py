@@ -14,6 +14,7 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from core.database import get_connection, BASE_DIR
 from core.logger import log_error, log_info
 from core.satis_servis import gunluk_ozet
+from core.log_servis import ISIMLER, hareketler, vardiya_listesi
 
 
 RAPOR_DIR = BASE_DIR / "raporlar"
@@ -120,6 +121,32 @@ def gun_sonu_excel(gun: str | None = None, otomatik: bool = False) -> tuple[bool
             ws3.cell(r, 3, m.get("aciklama") or "")
             ws3.cell(r, 4, m.get("olusturma") or "")
         ws3.column_dimensions["C"].width = 40
+
+        ws4 = wb.create_sheet("Personel Hareketleri")
+        for i, h in enumerate(["Tarih", "Saat", "Kim", "Islem", "Detay"], 1):
+            ws4.cell(1, i, h)
+        _stil_baslik(ws4, 1, 5)
+        for r, h in enumerate(hareketler(gun, gun), 2):
+            ws4.cell(r, 1, h.get("tarih") or "")
+            ws4.cell(r, 2, h.get("saat") or "")
+            ws4.cell(r, 3, h.get("kullanici") or "")
+            ws4.cell(r, 4, ISIMLER.get(h.get("islem") or "", h.get("islem") or ""))
+            ws4.cell(r, 5, h.get("detay") or "")
+        ws4.column_dimensions["D"].width = 22
+        ws4.column_dimensions["E"].width = 40
+
+        ws5 = wb.create_sheet("Vardiya")
+        for i, h in enumerate(
+            ["Kullanici", "Giris Tarihi", "Giris Saati", "Cikis Tarihi", "Cikis Saati"], 1
+        ):
+            ws5.cell(1, i, h)
+        _stil_baslik(ws5, 1, 5)
+        for r, v in enumerate(vardiya_listesi(gun), 2):
+            ws5.cell(r, 1, v.get("kullanici") or "")
+            ws5.cell(r, 2, v.get("giris_tarihi") or "")
+            ws5.cell(r, 3, v.get("giris_saati") or "")
+            ws5.cell(r, 4, v.get("cikis_tarihi") or "")
+            ws5.cell(r, 5, v.get("cikis_saati") or "")
 
         ek = "_otomatik" if otomatik else ""
         dosya = ay_klasor / f"gun_sonu_{gun.replace('-', '')}{ek}.xlsx"

@@ -14,6 +14,14 @@ from PyQt6.QtGui import QFont, QPixmap
 from core.logger import log_error, log_info
 from core.yollar import varlik
 from core.kullanici_servis import pin_dogrula
+from core.database import get_ayar
+from core.log_servis import (
+    aktif_kullanicilar,
+    islem_kaydet,
+    program_oturumlarini_kapat,
+    vardiya_ac,
+    vardiya_kapat_id,
+)
 from ui.giris_ekrani import GirisEkrani
 from ui.magaza_ekrani import MagazaEkrani
 from ui.yonetim_panel import YonetimPaneli
@@ -56,6 +64,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("KOZMOSIZE foreverunderground — Stok & Kasa")
         self.resize(1200, 720)
         self.kullanici = None
+        self._oturum_ids = []
+        islem_kaydet("-", "acilis", "Program acildi")
         try:
             self._ui_olustur()
         except Exception as e:
@@ -122,6 +132,14 @@ class MainWindow(QMainWindow):
         self._senkron_timer = QTimer(self)
         self._senkron_timer.timeout.connect(self._ekranlari_senkron)
         self._senkron_timer.start(8000)
+        self._yedek_timer = QTimer(self)
+        self._yedek_timer.timeout.connect(self._otomatik_yedek)
+        try:
+            dakika = int(get_ayar("yedek_aralik_dk", "120") or 120)
+        except Exception:
+            dakika = 120
+        self._yedek_timer.start(max(15, dakika) * 60 * 1000)
+        QTimer.singleShot(25000, self._otomatik_yedek)
 
 
         self.stack = QStackedWidget()
@@ -148,6 +166,13 @@ class MainWindow(QMainWindow):
         self.btn_yonetim.setVisible(yonetici)
         self.btn_guncelle.setVisible(yonetici)
         log_info(f"Giris: {kullanici.get('kullanici_adi')} / {kullanici.get('rol')}")
+        adi = kullanici.get("kullanici_adi") or "-"
+        islem_kaydet(adi, "giris")
+        oturum = vardiya_ac(adi, kullanici.get("id"))
+        if oturum:
+            self._oturum_ids.append(int(oturum))
+        self.magaza_ekrani.hos_geldin(adi)
+        self.magaza_ekrani.aktif_yenile()
 
     def _saat_ust_guncelle(self):
         if hasattr(self, "lbl_saat_ust"):
@@ -192,6 +217,23 @@ class MainWindow(QMainWindow):
             log_error("Guncelleme", e, __file__, "MainWindow.guncelle")
             QMessageBox.warning(self, "Guncelleme", f"Hata: {e}")
 
+    def _otomatik_yedek(self):
+        try:
+            from core.yedek_servis import yedek_arkaplan
+            yedek_arkaplan("otomatik")
+        except Exception as e:
+            log_error("Otomatik yedek", e, __file__, "_otomatik_yedek")
+
+    def aktif_etiket(self):
+        try:
+            satirlar = aktif_kullanicilar()
+            return " · ".join(
+                f"{r.get('kullanici') or '-'} ({(r.get('giris_saati') or '')[:5]})"
+                for r in satirlar
+            )
+        except Exception:
+            return ""
+
     def _ekranlari_senkron(self):
         """Acik ekrani veritabanindan yeniler. Iki program acikken kasa satisi yonetimde gorunur."""
         try:
@@ -202,8 +244,11 @@ class MainWindow(QMainWindow):
                 self.magaza_ekrani.ozet_yenile()
                 self.magaza_ekrani.satis_listesi_yenile()
                 self.magaza_ekrani.masraf_listesi_yenile()
+                self.magaza_ekrani.aktif_yenile()
             elif self.yonetim_ekrani is not None and guncel is self.yonetim_ekrani:
                 self.yonetim_ekrani.yenile(sessiz=True)
+                if hasattr(self.yonetim_ekrani, "aktif_yenile"):
+                    self.yonetim_ekrani.aktif_yenile()
         except Exception as e:
             log_error("Ekran senkron", e, __file__, "_ekranlari_senkron")
 
@@ -236,6 +281,12 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Hata", "Yonetim acilamadi.")
 
     def cikis_yap(self):
+        if self.kullanici:
+            adi = self.kullanici.get("kullanici_adi") or "-"
+            islem_kaydet(adi, "cikis", "Ust bar cikis")
+        for oid in list(self._oturum_ids):
+            vardiya_kapat_id(oid)
+        self._oturum_ids.clear()
         self.kullanici = None
         self.ust.setVisible(False)
         self.stack.setCurrentWidget(self.giris)
@@ -243,6 +294,17 @@ class MainWindow(QMainWindow):
         self.lbl_baslik.setText("KOZMOSIZE foreverunderground")
 
     def closeEvent(self, event):
+        try:
+            adi = ""
+            if isinstance(self.kullanici, dict):
+                adi = self.kullanici.get("kullanici_adi") or "-"
+            islem_kaydet(adi or "-", "kapanis")
+        except Exception:
+            pass
+        try:
+            program_oturumlarini_kapat()
+        except Exception:
+            pass
         try:
             from core.rapor_servis import kapanis_yedek
             from core.yedek_servis import yedek_al

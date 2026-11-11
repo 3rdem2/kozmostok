@@ -67,6 +67,7 @@ from core.logger import log_error, log_info
 from ui.kanal_sayfalari import KanalStokSayfasi, ApiAyarSayfasi, SatisRaporSayfasi
 from core.kanal_servis import bekleyen_hatirlatmalar
 from ui.sistem_sayfalari import YedekSayfasi, SayimSayfasi, KullaniciSayfasi, SistemSayfasi
+from ui.personel_sayfasi import PersonelRaporSayfasi
 from ui.gun_sonlari_sayfasi import GunSonlariSayfasi
 
 
@@ -541,6 +542,13 @@ class UrunFormDialog(QDialog):
                             urun_gorsel_ata(row["id"], self._bekleyen_gorsel)
 
             if ok:
+                if not self.urun_id:
+                    from core.log_servis import islem_kaydet
+                    islem_kaydet(
+                        getattr(self.parent(), "kullanici_adi", "") or "-",
+                        "urun_giris",
+                        f"{ad} / {self.stok_kodu.text().strip()}",
+                    )
                 ekstra = ""
                 if self.urun_id:
                     u2 = urun_getir(self.urun_id)
@@ -623,6 +631,12 @@ class StokDuzeltDialog(QDialog):
                 self.urun_id, fark=-miktar, aciklama=self.notu.text(), kanal=kanal
             )
         if ok:
+            from core.log_servis import islem_kaydet
+            islem_kaydet(
+                getattr(self.parent(), "kullanici_adi", "") or "-",
+                "stok_giris",
+                f"{getattr(self, 'urun_ad', '') or ''} / {msg}",
+            )
             QMessageBox.information(self, "Tamam", msg)
             self.accept()
         else:
@@ -690,6 +704,9 @@ class YonetimPaneli(QWidget):
         self.setStyleSheet(f"background:{BG}; color:{TEXT};")
         ana = QVBoxLayout(self)
         ana.setContentsMargins(12, 10, 12, 12)
+        self.lbl_aktif = QLabel("Aktif kullanicilar: -")
+        self.lbl_aktif.setStyleSheet("background:transparent; color:#c9a66b; font-size:11px;")
+        ana.addWidget(self.lbl_aktif)
         self.tabs = QTabWidget()
         # Sekme stilleri global tema (ui/tema.py) ile gelir
         self.tabs.setDocumentMode(True)
@@ -709,6 +726,8 @@ class YonetimPaneli(QWidget):
         self.tabs.addTab(self.ty_stok, "Trendyol")
         self.satis_rapor = SatisRaporSayfasi()
         self.tabs.addTab(self.satis_rapor, "Satılanlar")
+        self.personel_rapor = PersonelRaporSayfasi()
+        self.tabs.addTab(self.personel_rapor, "Personel Raporlari")
         self.api_sayfa = ApiAyarSayfasi()
         self.tabs.addTab(self.api_sayfa, "API Ayarlari")
         self.tabs.addTab(SayimSayfasi(), "Sayim")
@@ -952,10 +971,23 @@ class YonetimPaneli(QWidget):
             sonuc.append(u)
         return sonuc
 
+    def aktif_yenile(self):
+        try:
+            from core.log_servis import aktif_kullanicilar
+            satirlar = aktif_kullanicilar()
+            adlar = " · ".join(
+                f"{r.get('kullanici') or '-'} ({(r.get('giris_saati') or '')[:5]})"
+                for r in satirlar
+            )
+            self.lbl_aktif.setText("Aktif kullanicilar: " + (adlar or "-"))
+        except Exception:
+            pass
+
     def yenile(self, sessiz: bool = False, yerel: bool = False, zorla: bool = False):
         try:
             from PyQt6.QtWidgets import QApplication
             QApplication.processEvents()
+            self.aktif_yenile()
             yasa = time.time() - self._cache_zaman
             yukle = zorla or self._urun_cache is None or (not yerel and yasa > 60.0)
             if yukle:
