@@ -30,6 +30,8 @@ build/
 kozmo_token.txt
 kozmo_token.txt.txt
 *token*.txt
+# Gizli baglanti ayarlari (sablon: config.ornek.ini)
+config.ini
 # Eski/yinelenen klasor kopyalari (kullanilmiyor)
 ui/ui/
 core/core/

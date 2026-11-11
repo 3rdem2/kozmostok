@@ -975,11 +975,8 @@ class YonetimPaneli(QWidget):
         try:
             from core.log_servis import aktif_kullanicilar
             satirlar = aktif_kullanicilar()
-            adlar = " · ".join(
-                f"{r.get('kullanici') or '-'} ({(r.get('giris_saati') or '')[:5]})"
-                for r in satirlar
-            )
-            self.lbl_aktif.setText("Aktif kullanicilar: " + (adlar or "-"))
+            adlar = sorted({(r.get("kullanici") or "").strip() for r in satirlar} - {""})
+            self.lbl_aktif.setText("Aktif kullanicilar: " + (" · ".join(adlar) or "-"))
         except Exception:
             pass
 

@@ -113,6 +113,231 @@ class AyirOnayDialog(QDialog):
         self.accept()
 
 
+class PersonelDialog(QDialog):
+    """Personel giris/cikisi — cercevesiz koyu pencere, sag ustte X ile kapanir."""
+
+    giris_ok = pyqtSignal(str)
+    cikis_ok = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setModal(True)
+        self.setWindowTitle("Personel giris / cikis")
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
+        self.setFixedSize(440, 360)
+        self.setStyleSheet(f"QDialog {{ background:{PANEL}; border:1px solid {BORDER_2}; }}")
+        self._drag_pos = None
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 12, 16, 16)
+        root.setSpacing(10)
+
+        # Baslik + X
+        bas = QHBoxLayout()
+        bas.setSpacing(8)
+        lbl_bas = QLabel("PERSONEL GIRIS / CIKIS")
+        lbl_bas.setStyleSheet(f"background:transparent; color:{TEXT}; font-size:13px; font-weight:700;")
+        bas.addWidget(lbl_bas)
+        bas.addStretch()
+        btn_x = QPushButton("✕")
+        btn_x.setFixedSize(26, 26)
+        btn_x.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn_x.setStyleSheet(
+            f"QPushButton {{ background:transparent; color:{TEXT_2}; font-size:14px; border:none; }}"
+            f"QPushButton:hover {{ color:{ACCENT_H}; }}"
+        )
+        btn_x.clicked.connect(self.close)
+        bas.addWidget(btn_x)
+        root.addLayout(bas)
+
+        # Aktif kullanicilar
+        self.lbl_aktif = QLabel("Aktif: -")
+        self.lbl_aktif.setWordWrap(True)
+        self.lbl_aktif.setStyleSheet(f"background:transparent; color:{MUTED}; font-size:11px;")
+        root.addWidget(self.lbl_aktif)
+
+        # GIRIS paneli
+        p_in = QFrame()
+        p_in.setStyleSheet(f"QFrame {{ background:{PANEL_2}; border:1px solid {BORDER}; border-radius:2px; }}")
+        fi = QVBoxLayout(p_in)
+        fi.setContentsMargins(10, 8, 10, 10)
+        fi.setSpacing(6)
+        t1 = QLabel("GIRIS")
+        t1.setStyleSheet(f"background:transparent; color:{TEXT_2}; font-size:11px; font-weight:700;")
+        fi.addWidget(t1)
+        g1 = QGridLayout()
+        g1.setHorizontalSpacing(8)
+        g1.setVerticalSpacing(6)
+        self.ed_adi = QLineEdit()
+        self.ed_adi.setPlaceholderText("Kullanici adi")
+        self.ed_adi.setFixedHeight(CTRL_H)
+        self.ed_adi.setStyleSheet(_ctrl_ss())
+        self.ed_sifre = QLineEdit()
+        self.ed_sifre.setPlaceholderText("Sifre")
+        self.ed_sifre.setEchoMode(QLineEdit.EchoMode.Password)
+        self.ed_sifre.setFixedHeight(CTRL_H)
+        self.ed_sifre.setStyleSheet(_ctrl_ss())
+        self.ed_sifre.returnPressed.connect(self._giris)
+        lbl_a = QLabel("Kullanici adi")
+        lbl_a.setStyleSheet(f"background:transparent; color:{TEXT_2}; font-size:12px;")
+        lbl_a.setFixedHeight(CTRL_H)
+        lbl_a.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        lbl_b = QLabel("Sifre")
+        lbl_b.setStyleSheet(f"background:transparent; color:{TEXT_2}; font-size:12px;")
+        lbl_b.setFixedHeight(CTRL_H)
+        lbl_b.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        g1.addWidget(lbl_a, 0, 0)
+        g1.addWidget(self.ed_adi, 0, 1)
+        g1.addWidget(lbl_b, 1, 0)
+        g1.addWidget(self.ed_sifre, 1, 1)
+        g1.setColumnStretch(1, 1)
+        fi.addLayout(g1)
+        h1 = QHBoxLayout()
+        btn_giris = QPushButton("GIRIS")
+        btn_giris.setStyleSheet(_btn("ok"))
+        btn_giris.setFixedHeight(CTRL_H)
+        btn_giris.clicked.connect(self._giris)
+        h1.addStretch()
+        h1.addWidget(btn_giris)
+        fi.addLayout(h1)
+        root.addWidget(p_in)
+
+        # CIKIS paneli (ayni yapi — esit genislik)
+        p_out = QFrame()
+        p_out.setStyleSheet(f"QFrame {{ background:{PANEL_2}; border:1px solid {BORDER}; border-radius:2px; }}")
+        fo = QVBoxLayout(p_out)
+        fo.setContentsMargins(10, 8, 10, 10)
+        fo.setSpacing(6)
+        t2 = QLabel("CIKIS")
+        t2.setStyleSheet(f"background:transparent; color:{TEXT_2}; font-size:11px; font-weight:700;")
+        fo.addWidget(t2)
+        g2 = QGridLayout()
+        g2.setHorizontalSpacing(8)
+        g2.setVerticalSpacing(6)
+        self.cmb_kullanici = QComboBox()
+        self.cmb_kullanici.setFixedHeight(CTRL_H)
+        self.cmb_kullanici.setStyleSheet(_ctrl_ss())
+        self.ed_cikis_sifre = QLineEdit()
+        self.ed_cikis_sifre.setPlaceholderText("Sifre")
+        self.ed_cikis_sifre.setEchoMode(QLineEdit.EchoMode.Password)
+        self.ed_cikis_sifre.setFixedHeight(CTRL_H)
+        self.ed_cikis_sifre.setStyleSheet(_ctrl_ss())
+        self.ed_cikis_sifre.returnPressed.connect(self._cikis)
+        lbl_c = QLabel("Kullanici")
+        lbl_c.setStyleSheet(f"background:transparent; color:{TEXT_2}; font-size:12px;")
+        lbl_c.setFixedHeight(CTRL_H)
+        lbl_c.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        lbl_d = QLabel("Sifre")
+        lbl_d.setStyleSheet(f"background:transparent; color:{TEXT_2}; font-size:12px;")
+        lbl_d.setFixedHeight(CTRL_H)
+        lbl_d.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        g2.addWidget(lbl_c, 0, 0)
+        g2.addWidget(self.cmb_kullanici, 0, 1)
+        g2.addWidget(lbl_d, 1, 0)
+        g2.addWidget(self.ed_cikis_sifre, 1, 1)
+        g2.setColumnStretch(1, 1)
+        fo.addLayout(g2)
+        h2 = QHBoxLayout()
+        btn_cikis = QPushButton("CIKIS")
+        btn_cikis.setStyleSheet(_btn("tehlike"))
+        btn_cikis.setFixedHeight(CTRL_H)
+        btn_cikis.clicked.connect(self._cikis)
+        h2.addStretch()
+        h2.addWidget(btn_cikis)
+        fo.addLayout(h2)
+        root.addWidget(p_out)
+
+        root.addStretch()
+
+        # Durum satiri
+        self.lbl_durum = QLabel("")
+        self.lbl_durum.setWordWrap(True)
+        self.lbl_durum.setStyleSheet(f"background:transparent; color:{MUTED}; font-size:11px;")
+        root.addWidget(self.lbl_durum)
+
+        self._aktif_yenile()
+
+    def _aktif_yenile(self):
+        try:
+            satirlar = aktif_kullanicilar()
+            adlar = sorted({(r.get("kullanici") or "").strip() for r in satirlar} - {""})
+            self.lbl_aktif.setText("Aktif: " + (" · ".join(adlar) or "-"))
+            secim = self.cmb_kullanici.currentText()
+            self.cmb_kullanici.clear()
+            self.cmb_kullanici.addItem("")
+            for ad in adlar:
+                self.cmb_kullanici.addItem(ad)
+            i = self.cmb_kullanici.findText(secim)
+            if i >= 0:
+                self.cmb_kullanici.setCurrentIndex(i)
+        except Exception as e:
+            log_error("Aktif liste", e, __file__, "PersonelDialog._aktif_yenile")
+
+    def _durum(self, metin: str, ok: bool):
+        self.lbl_durum.setText(metin)
+        self.lbl_durum.setStyleSheet(
+            f"background:transparent; color:{OK if ok else DANGER}; font-size:11px; font-weight:600;"
+        )
+
+    def _giris(self):
+        adi = self.ed_adi.text().strip()
+        sifre = self.ed_sifre.text().strip()
+        if not adi or not sifre:
+            self._durum("Kullanici adi ve sifre girin", False)
+            return
+        ok, sonuc = giris_yap(adi, sifre)
+        if not ok:
+            self._durum(str(sonuc), False)
+            return
+        vardiya_ac(adi, sonuc.get("id"))
+        islem_kaydet(adi, "ek_giris", "Magaza ek kullanici girisi", sonuc.get("id"))
+        p = self.parent()
+        if p is not None and hasattr(p, "aktif_kullanici"):
+            p.aktif_kullanici = adi
+        self.ed_adi.clear()
+        self.ed_sifre.clear()
+        self._aktif_yenile()
+        self._durum(f"{adi} magaza oturumuna eklendi", True)
+        self.ed_adi.setFocus()
+        self.giris_ok.emit(adi)
+
+    def _cikis(self):
+        adi = self.cmb_kullanici.currentText().strip()
+        sifre = self.ed_cikis_sifre.text().strip()
+        if not adi:
+            self._durum("Cikis yapacak kullaniciyi secin", False)
+            return
+        if not pin_dogrula(sifre, adi):
+            self._durum("Sifre yanlis", False)
+            self.ed_cikis_sifre.clear()
+            return
+        vardiya_kapat_adi(adi)
+        islem_kaydet(adi, "cikis", "Magaza kullanici cikisi")
+        self.ed_cikis_sifre.clear()
+        p = self.parent()
+        if p is not None and hasattr(p, "aktif_kullanici") and getattr(p, "aktif_kullanici", "") == adi:
+            p.aktif_kullanici = getattr(p, "kullanici_adi", "")
+        self._aktif_yenile()
+        self._durum(f"{adi} cikis yapti", True)
+        self.cikis_ok.emit(adi)
+
+    # cercevesiz pencereyi tasima
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
+        super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e):
+        if self._drag_pos is not None and (e.buttons() & Qt.MouseButton.LeftButton):
+            self.move(e.globalPosition().toPoint() - self._drag_pos)
+        else:
+            super().mouseMoveEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        self._drag_pos = None
+        super().mouseReleaseEvent(e)
+
+
 class MagazaEkrani(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -368,59 +593,6 @@ class MagazaEkrani(QWidget):
         sag = QVBoxLayout()
         sag.setSpacing(6)
 
-        # Ek kullanici girisi / cikisi — vardiya takibi
-        ek_frame = QFrame()
-        ek_frame.setStyleSheet(
-            f"QFrame {{ background:{PANEL}; border:1px solid {BORDER}; border-radius:2px; }}"
-        )
-        ef = QVBoxLayout(ek_frame)
-        ef.setContentsMargins(8, 6, 8, 6)
-        ef.setSpacing(4)
-        ef.addWidget(self._baslik("EK KULLANICI GIRISI / CIKISI"))
-        r1 = QHBoxLayout()
-        r1.setSpacing(6)
-        self.ek_adi = QLineEdit()
-        self.ek_adi.setPlaceholderText("Kullanici adi")
-        self.ek_adi.setFixedHeight(CTRL_H)
-        self.ek_adi.setStyleSheet(_ctrl_ss())
-        r1.addWidget(self.ek_adi, 1)
-        self.ek_sifre = QLineEdit()
-        self.ek_sifre.setPlaceholderText("Sifre")
-        self.ek_sifre.setEchoMode(QLineEdit.EchoMode.Password)
-        self.ek_sifre.setFixedHeight(CTRL_H)
-        self.ek_sifre.setStyleSheet(_ctrl_ss())
-        self.ek_sifre.returnPressed.connect(self.ek_giris)
-        r1.addWidget(self.ek_sifre, 1)
-        btn_ek = QPushButton("Giris")
-        btn_ek.setStyleSheet(_btn("ok"))
-        btn_ek.setFixedHeight(CTRL_H)
-        btn_ek.clicked.connect(self.ek_giris)
-        r1.addWidget(btn_ek)
-        ef.addLayout(r1)
-        r2 = QHBoxLayout()
-        r2.setSpacing(6)
-        self.cmb_cikis = QComboBox()
-        self.cmb_cikis.setFixedHeight(CTRL_H)
-        self.cmb_cikis.setStyleSheet(_ctrl_ss())
-        r2.addWidget(self.cmb_cikis, 1)
-        self.cikis_sifre = QLineEdit()
-        self.cikis_sifre.setPlaceholderText("Sifre")
-        self.cikis_sifre.setEchoMode(QLineEdit.EchoMode.Password)
-        self.cikis_sifre.setFixedHeight(CTRL_H)
-        self.cikis_sifre.setStyleSheet(_ctrl_ss())
-        self.cikis_sifre.returnPressed.connect(self.ek_cikis)
-        r2.addWidget(self.cikis_sifre, 1)
-        btn_ck = QPushButton("Cikis")
-        btn_ck.setStyleSheet(_btn("tehlike"))
-        btn_ck.setFixedHeight(CTRL_H)
-        btn_ck.clicked.connect(self.ek_cikis)
-        r2.addWidget(btn_ck)
-        ef.addLayout(r2)
-        self.lbl_aktif = QLabel("Aktif: -")
-        self.lbl_aktif.setStyleSheet(f"background:transparent; color:{ACCENT}; font-size:11px;")
-        ef.addWidget(self.lbl_aktif)
-        sag.addWidget(ek_frame)
-
         # Satilanlar tablosu
         sag.addWidget(self._baslik("Bugun satilanlar"))
         self.satis_tablo = QTableWidget(0, 5)
@@ -521,6 +693,19 @@ class MagazaEkrani(QWidget):
         btn_gun.setStyleSheet(_btn("ikincil"))
         btn_gun.clicked.connect(self.gun_sonu)
         sag.addWidget(btn_gun)
+
+        # Personel: tek tus + aktif kullanicilar (detay pencerede)
+        p_row = QHBoxLayout()
+        p_row.setSpacing(8)
+        self.btn_personel = QPushButton("PERSONEL")
+        self.btn_personel.setStyleSheet(_btn("birincil"))
+        self.btn_personel.setFixedHeight(CTRL_H)
+        self.btn_personel.clicked.connect(self.personel_pencere)
+        p_row.addWidget(self.btn_personel)
+        self.lbl_aktif = QLabel("Aktif: -")
+        self.lbl_aktif.setStyleSheet(f"background:transparent; color:{MUTED}; font-size:11px;")
+        p_row.addWidget(self.lbl_aktif, 1)
+        sag.addLayout(p_row)
 
         root.addLayout(sag, 2)
         self._kategorileri_doldur(False)
@@ -1372,60 +1557,20 @@ class MagazaEkrani(QWidget):
             self._hosgeldin_timer.stop()
         self.hosgeldin_bandi.hide()
 
-    # ---- ek kullanici girisi / cikisi
-    def ek_giris(self):
-        adi = self.ek_adi.text().strip()
-        sifre = self.ek_sifre.text().strip()
-        if not adi or not sifre:
-            self.mesaj("Kullanici adi ve sifre girin", False)
-            return
-        ok, sonuc = giris_yap(adi, sifre)
-        if not ok:
-            self.mesaj(str(sonuc), False)
-            return
-        oturum = vardiya_ac(adi, sonuc.get("id"))
-        islem_kaydet(adi, "ek_giris", "Magaza ek kullanici girisi", sonuc.get("id"))
-        self.aktif_kullanici = adi
-        self.ek_adi.clear()
-        self.ek_sifre.clear()
-        self.hos_geldin(adi)
+    # ---- personel giris / cikis penceresi
+    def personel_pencere(self):
+        dlg = PersonelDialog(self)
+        dlg.giris_ok.connect(self.hos_geldin)
+        dlg.giris_ok.connect(self.aktif_yenile)
+        dlg.cikis_ok.connect(self.aktif_yenile)
+        dlg.exec()
         self.aktif_yenile()
-        self.ek_giris_yapildi.emit(adi, int(oturum or 0))
-        self.mesaj(f"{adi} magaza oturumuna eklendi")
-
-    def ek_cikis(self):
-        adi = self.cmb_cikis.currentText().strip()
-        sifre = self.cikis_sifre.text().strip()
-        if not adi:
-            self.mesaj("Cikis yapacak kullaniciyi secin", False)
-            return
-        if not pin_dogrula(sifre, adi):
-            self.mesaj("Sifre yanlis", False)
-            return
-        vardiya_kapat_adi(adi)
-        islem_kaydet(adi, "cikis", "Magaza kullanici cikisi")
-        self.cikis_sifre.clear()
-        if self.aktif_kullanici == adi:
-            self.aktif_kullanici = self.kullanici_adi
-        self.aktif_yenile()
-        self.ek_cikis_yapildi.emit(adi, 0)
-        self.mesaj(f"{adi} cikis yapti")
 
     def aktif_yenile(self):
         try:
             satirlar = aktif_kullanicilar()
-            adlar = " · ".join(
-                f"{r.get('kullanici') or '-'} ({(r.get('giris_saati') or '')[:5]})"
-                for r in satirlar
-            )
-            self.lbl_aktif.setText("Aktif: " + (adlar or "-"))
-            secim = self.cmb_cikis.currentText()
-            self.cmb_cikis.clear()
-            ad_listesi = sorted({r.get("kullanici") or "" for r in satirlar} - {""})
-            self.cmb_cikis.addItems(ad_listesi)
-            i = self.cmb_cikis.findText(secim)
-            if i >= 0:
-                self.cmb_cikis.setCurrentIndex(i)
+            adlar = sorted({(r.get("kullanici") or "").strip() for r in satirlar} - {""})
+            self.lbl_aktif.setText("Aktif: " + (" · ".join(adlar) or "-"))
         except Exception as e:
             log_error("Aktif liste", e, __file__, "MagazaEkrani.aktif_yenile")
 
