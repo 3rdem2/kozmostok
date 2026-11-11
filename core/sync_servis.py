@@ -26,6 +26,7 @@ calismaya devam eder.
 
 from __future__ import annotations
 
+import sqlite3
 import threading
 import time
 import uuid
@@ -608,12 +609,56 @@ def _satir_cek(conn, spec, r: dict) -> None:
             (*[degerler[c] for c in kolonlar], mevcut["id"]),
         )
     else:
-        cur = conn.cursor()
-        cur.execute(
-            f"INSERT INTO {t} (sync_id, {', '.join(kolonlar)}) "
-            f"VALUES (?{', ?' * len(kolonlar)})",
-            (sid, *[degerler[c] for c in kolonlar]),
-        )
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"INSERT INTO {t} (sync_id, {', '.join(kolonlar)}) "
+                f"VALUES (?{', ?' * len(kolonlar)})",
+                (sid, *[degerler[c] for c in kolonlar]),
+            )
+        except sqlite3.IntegrityError:
+            # Dogal anahtar cakismasi (orn. ayni adli kullanici yerelde
+            # kurulum varsayilani olarak zaten var). Yerel satiri sahiplen:
+            # sunucu kimligini ve degerlerini o satira yaz; id degismez,
+            # referanslar (vardiya.kullanici_id gibi) bozulmaz.
+            eski = _dogal_anahtar_bul(conn, t, degerler)
+            if eski is None:
+                raise
+            cur = conn.cursor()
+            cur.execute(
+                f"UPDATE {t} SET sync_id=?, {', '.join(f'{c}=?' for c in kolonlar)} "
+                f"WHERE id=?",
+                (sid, *[degerler[c] for c in kolonlar], eski["id"]),
+            )
+            log_info(
+                f"Dogal anahtar cakismasi sahiplenildi: {t}#{eski['id']} <- {sid}"
+            )
+
+
+# Oznesi ayni satirlari kimliklerinden taniyan dogal anahtarlar.
+_DOGAL = {
+    "kullanicilar": ("kullanici_adi",),
+    "kategoriler": ("ad",),
+    "urunler": ("stok_kodu", "barkod"),
+}
+
+
+def _dogal_anahtar_bul(conn, t: str, d: dict):
+    kolonlar = _DOGAL.get(t)
+    if not kolonlar:
+        return None
+    sartlar, par = [], []
+    for k in kolonlar:
+        v = d.get(k)
+        if v in (None, ""):
+            continue
+        sartlar.append(f"{k}=?")
+        par.append(v)
+    if not sartlar:
+        return None
+    return conn.execute(
+        f"SELECT id FROM {t} WHERE {' AND '.join(sartlar)}", par
+    ).fetchone()
 
 
 def _cek(conn, pg, makine: str) -> int:
