@@ -14,8 +14,10 @@ KOK = os.path.abspath(os.getcwd())
 datas = [
     (os.path.join(KOK, "assets"), "assets"),
     (os.path.join(KOK, "surum.json"), "."),
-    (os.path.join(KOK, "config.ini"), "."),
 ]
+# config.ini repoda yok (gizli); yerel derlemede varsa pakete eklenir
+if os.path.exists(os.path.join(KOK, "config.ini")):
+    datas.append((os.path.join(KOK, "config.ini"), "."))
 
 gizli = [
     "psycopg2",
