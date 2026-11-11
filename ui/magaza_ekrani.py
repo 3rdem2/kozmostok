@@ -139,12 +139,14 @@ class PersonelDialog(QDialog):
         lbl_bas.setStyleSheet(f"background:transparent; color:{TEXT}; font-size:13px; font-weight:700;")
         bas.addWidget(lbl_bas)
         bas.addStretch()
-        btn_x = QPushButton("✕")
-        btn_x.setFixedSize(26, 26)
+        btn_x = QPushButton("×")
+        btn_x.setFixedSize(30, 30)
         btn_x.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        btn_x.setToolTip("Kapat (Esc)")
         btn_x.setStyleSheet(
-            f"QPushButton {{ background:transparent; color:{TEXT_2}; font-size:14px; border:none; }}"
-            f"QPushButton:hover {{ color:{ACCENT_H}; }}"
+            f"QPushButton {{ background:{PANEL_2}; color:{TEXT}; font-size:18px; font-weight:700;"
+            f" border:1px solid {BORDER_2}; border-radius:4px; padding:0px; }}"
+            f"QPushButton:hover {{ background:{ACCENT}; color:#FFFFFF; border-color:{ACCENT}; }}"
         )
         btn_x.clicked.connect(self.close)
         bas.addWidget(btn_x)
@@ -1559,6 +1561,11 @@ class MagazaEkrani(QWidget):
 
     # ---- personel giris / cikis penceresi
     def personel_pencere(self):
+        acik = self.findChild(PersonelDialog)
+        if acik is not None:
+            acik.raise_()
+            acik.activateWindow()
+            return
         dlg = PersonelDialog(self)
         dlg.giris_ok.connect(self.hos_geldin)
         dlg.giris_ok.connect(self.aktif_yenile)
