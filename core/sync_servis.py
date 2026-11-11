@@ -47,6 +47,9 @@ except Exception:  # psycopg2 yoksa SQLite modu calismaya devam eder
 SYNC_SURUM = "1"
 
 _BASLANGIC = "2000-01-01 00:00:00"
+# Cekme sayfa boyu: Supabase pooler tum tabloyu tek sorguda yavas/kesintili
+# tasiyor (SSL eof). Kucuk sayfalar hizli ve kopmada kaldigi yerden devam eder.
+_CEKME_SAYFA = 200
 _PG_TS = "to_char(now(), 'YYYY-MM-DD HH24:MI:SS')"
 
 # Senkron edilacak tablolar (bagimlilik sirasiyla: once ust kayit).
@@ -453,10 +456,14 @@ def _pg_baglan(bekleme: float = 12.0):
         password=p.get("password"),
         connect_timeout=max(2, int(bekleme)),
         cursor_factory=RealDictCursor,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=3,
     )
     # Uygulama oturumlari islemlerini uzun sure acik tutabiliyor; bizim
     # ifademiz kilit beklerken sonsuza kadar asili kalmasin — hizli
-    # vazgecip tekrar deneyelim (senkronize 1 kez tekrar eder).
+    # vazgecip tekrar deneyelim (senkronize gecici hatada 2 kez tekrar eder).
     try:
         cur = pg.cursor()
         cur.execute("SET statement_timeout = '8s'")
@@ -553,6 +560,10 @@ def sunucu_hazirla(pg) -> bool:
             cur.execute(
                 f"CREATE UNIQUE INDEX IF NOT EXISTS ux_{spec['tablo']}_sync "
                 f"ON {spec['tablo']} (sync_id)"
+            )
+            cur.execute(
+                f"CREATE INDEX IF NOT EXISTS ix_{spec['tablo']}_sync_zaman "
+                f"ON {spec['tablo']} (sync_zaman, id)"
             )
         except Exception as e:
             log_error(f"Indeks atlandi ({spec['tablo']})", e, __file__, "sunucu_hazirla")
@@ -689,32 +700,66 @@ def _cek(conn, pg, makine: str) -> int:
     set_ayar("sync_son_mezar", son_yeni)
 
     # 2) Yeni / degisen satirlar (bagimlilik sirasiyla).
+    # Sayfa sayfa cekilir; her sayfadan sonra sync_son_cekme_<tablo> ve
+    # sync_son_cekme_<tablo>_id ilerletilir. Boylece baglanti koparsa bir
+    # sonraki deneme kaldigi satirdan devam eder, tum tablo bastan cekilmez.
     for spec in TABLOLAR:
         t = spec["tablo"]
         son = get_ayar(f"sync_son_cekme_{t}", _BASLANGIC)
-        cur.execute(
-            f"SELECT * FROM {t} WHERE sync_zaman > %s ORDER BY sync_zaman LIMIT 5000",
-            (son,),
-        )
-        son_iyi = son
-        islenen = 0
-        for r in cur.fetchall():
-            try:
-                _satir_cek(conn, spec, r)
-                son_iyi = r["sync_zaman"]
+        try:
+            son_id = int(get_ayar(f"sync_son_cekme_{t}_id", "0") or 0)
+        except (TypeError, ValueError):
+            son_id = 0
+        ertelenen = []
+        while True:
+            cur.execute(
+                f"SELECT * FROM {t} "
+                "WHERE sync_zaman > %s OR (sync_zaman = %s AND id > %s) "
+                "ORDER BY sync_zaman, id LIMIT %s",
+                (son, son, son_id, _CEKME_SAYFA),
+            )
+            satirlar = cur.fetchall()
+            if not satirlar:
+                break
+            for r in satirlar:
+                try:
+                    _satir_cek(conn, spec, r)
+                except _Ertele:
+                    # Bagli kayit henuz yok (orn. varyantin ana urunu sonra
+                    # geliyor). Satiri at, sayfa sonunda tekrar dene.
+                    ertelenen.append(r)
+                except Exception as e:
+                    log_error(f"Satir cekilemedi ({t}#{r.get('id')})", e, __file__, "_cek")
+                son = r["sync_zaman"]
+                son_id = r["id"]
                 alinan += 1
-            except _Ertele:
-                break  # su tabloda ileri gidemez; sonraki senkronda tekrar denenir
-            except Exception as e:
-                log_error(f"Satir cekilemedi ({t}#{r.get('id')})", e, __file__, "_cek")
-            islenen += 1
-            if islenen % 500 == 0:
-                # Uzun yaz kilidi tutmayalim (ayni anda ayar/ başka baglanti
-                # yazmasin diye arada birbiriyoruz).
-                conn.commit()
-        conn.commit()
-        set_ayar(f"sync_son_cekme_{t}", son_iyi)
-        conn.commit()
+            conn.commit()
+            set_ayar(f"sync_son_cekme_{t}", son)
+            set_ayar(f"sync_son_cekme_{t}_id", str(son_id))
+            conn.commit()
+            if len(satirlar) < _CEKME_SAYFA:
+                break
+        # Ertelenen satirlar: bagli kayit artik yerelde olabilir (ayni
+        # tablodaki parent_id gibi). Baska tabloya bagliysa sonraki senkrona
+        # kalir; burada en fazla 3 tur denenir.
+        for _tur in range(3):
+            if not ertelenen:
+                break
+            kalan = []
+            for r in ertelenen:
+                try:
+                    _satir_cek(conn, spec, r)
+                    alinan += 1
+                except _Ertele:
+                    kalan.append(r)
+                except Exception as e:
+                    log_error(f"Satir cekilemedi ({t}#{r.get('id')})", e, __file__, "_cek")
+            conn.commit()
+            if len(kalan) == len(ertelenen):
+                break
+            ertelenen = kalan
+        if ertelenen:
+            log_info(f"Ertelenen {len(ertelenen)} satir sonraki senkrona kaldi ({t})")
     return alinan
 
 
@@ -834,6 +879,7 @@ def _gonder(conn, pg, makine: str) -> int:
         log_error("Mezar tasi listesi", e, __file__, "_gonder")
 
     # 2) Kuyruktaki satirlar.
+    ertelenen: list = []
     for spec in TABLOLAR:
         t = spec["tablo"]
         kuyruk = conn.execute(
@@ -861,7 +907,8 @@ def _gonder(conn, pg, makine: str) -> int:
                 conn.commit()
             except _Ertele as e:
                 log_info(f"Ertelendi: {e}")
-                break  # bu tabloda sunucu hazir degil; sonraki senkronda denenir
+                ertelenen.append((spec, lid))
+                continue
             except Exception as e:
                 try:
                     pg.rollback()
@@ -882,6 +929,120 @@ def _gonder(conn, pg, makine: str) -> int:
                     continue
                 log_error(f"Satir gonderilemedi ({t}#{lid})", e, __file__, "_gonder")
                 break  # ag/erisim sorunu: kalan satirlari birak, tekrar denensin
+
+    # 3) Ertelenenler: bagli kayit bu turda gonderildiyse yeniden dene.
+    for _tur in range(2):
+        if not ertelenen:
+            break
+        kalan: list = []
+        for spec, lid in ertelenen:
+            t = spec["tablo"]
+            satir = conn.execute(f"SELECT * FROM {t} WHERE id=?", (lid,)).fetchone()
+            if satir is None:
+                conn.execute(
+                    "DELETE FROM sync_kuyruk WHERE tablo=? AND lokal_id=?", (t, lid)
+                )
+                conn.commit()
+                continue
+            try:
+                if _satir_gonder(cur_pg, conn, spec, satir, makine):
+                    gonderilen += 1
+                conn.execute(
+                    "DELETE FROM sync_kuyruk WHERE tablo=? AND lokal_id=?", (t, lid)
+                )
+                pg.commit()
+                conn.commit()
+            except _Ertele:
+                kalan.append((spec, lid))
+            except Exception as e:
+                try:
+                    pg.rollback()
+                except Exception:
+                    pass
+                log_error(
+                    f"Ertelenen satir gonderilemedi ({t}#{lid})",
+                    e, __file__, "_gonder",
+                )
+        ertelenen = kalan
+    if ertelenen:
+        log_info(f"Ertelenen {len(ertelenen)} satir sonraki senkrona kaldi")
+    return gonderilen
+
+
+def _gonder_eksikler(conn, pg, makine: str, sinir: int = 500) -> int:
+    """Kuyrugu kaybolmus yerel satirlari sunucuya tamamlar.
+
+    Kuyruk (sync_kuyruk) silinirse/bozulursa yerel kayitlar bir daha
+    gonderilmiyordu; bu adim her senkronda yerelde olup sunucuda olmayan
+    satirlari bulup gonderir. Normalde eksik 0'dir, ek maliyet yoktur.
+    """
+    gonderilen = 0
+    cur_pg = pg.cursor()
+    try:
+        cur_pg.execute("SELECT tablo, sync_id FROM sync_silinenler")
+        mezarlar = {(r["tablo"], r["sync_id"]) for r in cur_pg.fetchall()}
+    except Exception as e:
+        try:
+            pg.rollback()
+        except Exception:
+            pass
+        log_error("Mezar tasi listesi (eksik)", e, __file__, "_gonder_eksikler")
+        mezarlar = set()
+    for spec in TABLOLAR:
+        t = spec["tablo"]
+        try:
+            cur_pg.execute(f"SELECT sync_id FROM {t} WHERE sync_id IS NOT NULL")
+            sunucu = {r["sync_id"] for r in cur_pg.fetchall()}
+        except Exception as e:
+            try:
+                pg.rollback()
+            except Exception:
+                pass
+            log_error(f"Eksik gonderim listesi ({t})", e, __file__, "_gonder_eksikler")
+            continue
+        yerel = conn.execute(
+            f"SELECT id, sync_id FROM {t} WHERE sync_id IS NOT NULL"
+        ).fetchall()
+        eksik = [r["id"] for r in yerel if r["sync_id"] not in sunucu]
+        if not eksik:
+            continue
+        # Baska makine silmis olabilir: mezar tasi varsa geri gonderilmez.
+        silinmis = [i for i in eksik
+                    if (t, conn.execute(f"SELECT sync_id FROM {t} WHERE id=?", (i,)).fetchone()["sync_id"]) in mezarlar]
+        if silinmis:
+            for i in silinmis:
+                conn.execute(f"DELETE FROM {t} WHERE id=?", (i,))
+            conn.commit()
+            eksik = [i for i in eksik if i not in silinmis]
+            log_info(f"Mezar tasi uygulandi (eksik): {t} {len(silinmis)} satir")
+            if not eksik:
+                continue
+        log_info(f"Eksik gonderim: {t} {len(eksik)} satir")
+        for lid in eksik[:sinir]:
+            satir = conn.execute(f"SELECT * FROM {t} WHERE id=?", (lid,)).fetchone()
+            if satir is None:
+                continue
+            try:
+                if _satir_gonder(cur_pg, conn, spec, satir, makine):
+                    gonderilen += 1
+                pg.commit()
+                conn.commit()
+            except _Ertele as e:
+                try:
+                    pg.rollback()
+                except Exception:
+                    pass
+                log_info(f"Eksik gonderim ertelendi: {e}")
+            except Exception as e:
+                try:
+                    pg.rollback()
+                except Exception:
+                    pass
+                log_error(
+                    f"Eksik satir gonderilemedi ({t}#{lid})",
+                    e, __file__, "_gonder_eksikler",
+                )
+                break
     return gonderilen
 
 
@@ -907,6 +1068,19 @@ def _ilk_kurulum(conn, pg) -> bool:
     except Exception as e:
         log_error("Ilk kurulum yedegi alinamadi", e, __file__, "_ilk_kurulum")
     cur = conn.cursor()
+    toplam = 0
+    for t in _SILA_SIRASI:
+        try:
+            toplam += cur.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        except Exception:
+            pass
+    if toplam:
+        set_ayar("sync_kurulum", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        log_info(
+            f"Ilk kurulum atlandi: yerelde {toplam} satir var, silinmedi "
+            "(veri korunur, eksikler sunucuya gonderilir)."
+        )
+        return False
     for t in _SILA_SIRASI:
         cur.execute(f"DELETE FROM {t}")
     cur.execute("DELETE FROM sync_kuyruk")
@@ -936,9 +1110,11 @@ def senkronize(bekleme: float = 12.0, sessiz: bool = False) -> dict:
         sonuc["hata"] = "senkron zaten suruyor"
         return sonuc
     GEÇİCİ = ("statement timeout", "deadlock", "could not obtain lock",
-              "server closed the connection", "SSL connection", "operasyon iptal")
+              "server closed the connection", "ssl connection", "ssl error",
+              "unexpected eof", "connection reset", "broken pipe", "10054",
+              "connection timed out", "operasyon iptal")
     deneme = 0
-    while deneme < 2:
+    while deneme < 3:
         deneme += 1
         pg = None
         try:
@@ -953,8 +1129,11 @@ def senkronize(bekleme: float = 12.0, sessiz: bool = False) -> dict:
                 sonuc["yeni_kurulum"] = yeni_kurulum
                 makine = makine_adi()
                 sonuc["gonderilen"] = _gonder(conn, pg, makine)
+                sonuc["eksik"] = _gonder_eksikler(conn, pg, makine)
+                sonuc["gonderilen"] += sonuc["eksik"]
                 sonuc["alinan"] = _cek(conn, pg, makine)
                 sonuc["ok"] = True
+                sonuc["hata"] = ""
                 if not sessiz:
                     log_info(
                         f"Senkron tamam: +{sonuc['gonderilen']} gonderildi, "
@@ -968,11 +1147,13 @@ def senkronize(bekleme: float = 12.0, sessiz: bool = False) -> dict:
             break
         except Exception as e:
             mesaj = str(e) or type(e).__name__
-            gecici = any(x in mesaj.lower() for x in GEÇİCİ)
+            gecici = any(x in mesaj.lower() for x in GEÇİCİ) or isinstance(
+                e, psycopg2.OperationalError
+            )
             sonuc["hata"] = mesaj
             log_error("Senkron basarisiz (cevrimdisi devam)", e, __file__, "senkronize")
-            if gecici and deneme < 2:
-                time.sleep(1.5)  # kilit tutsun birakir; bir kez daha dene
+            if gecici and deneme < 3:
+                time.sleep(1.5 * deneme)  # kilit tutsun birakir; tekrar dene
                 continue
             break
         finally:

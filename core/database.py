@@ -18,7 +18,7 @@ DB_PATH = BASE_DIR / "db" / "kozmostok.db"
 PG_MOD = False
 
 # Sema surumu: DDL degistikce artirilir. Ayni surumde acilis DDL'i atlanir.
-SEMA_SURUM = "4"
+SEMA_SURUM = "5"
 
 try:
     import psycopg2
@@ -111,6 +111,72 @@ def _indeksler(conn) -> None:
     ):
         try:
             conn.cursor().execute(sql)
+        except Exception:
+            pass
+
+
+def _urunler_stok_kodu_benzersiz_kaldir(conn) -> None:
+    """urunler.stok_kodu UNIQUE kisitini kaldirir (tabloyu yeniden kurar).
+
+    Sunucuda varyantlar ana urunun stok_kodu ile geliyor (or. KZM-0144);
+    yerel UNIQUE kisiti bu satirlarin cekilmesini engelliyordu.
+    """
+    try:
+        cur = conn.cursor()
+        benzersiz = False
+        for ix in cur.execute("PRAGMA index_list(urunler)").fetchall():
+            if not ix["unique"]:
+                continue
+            kolonlar = [
+                r["name"]
+                for r in cur.execute(f"PRAGMA index_info({ix['name']})").fetchall()
+            ]
+            if kolonlar == ["stok_kodu"]:
+                benzersiz = True
+                break
+        if not benzersiz:
+            return
+        sql_row = cur.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='urunler'"
+        ).fetchone()
+        if not sql_row or not sql_row["sql"]:
+            return
+        yeni_sql = sql_row["sql"].replace(
+            "CREATE TABLE urunler", "CREATE TABLE urunler_yeni", 1
+        )
+        # Sadece stok_kodu satirindaki UNIQUE'i kaldir.
+        satirlar = []
+        for satir in yeni_sql.splitlines():
+            if "stok_kodu" in satir and "UNIQUE" in satir.upper():
+                satir = satir.replace(" UNIQUE", "").replace(" unique", "")
+            satirlar.append(satir)
+        yeni_sql = "\n".join(satirlar)
+        kolonlar = [r["name"] for r in cur.execute("PRAGMA table_info(urunler)").fetchall()]
+        kolon_listesi = ", ".join(kolonlar)
+        conn.commit()
+        conn.execute("PRAGMA foreign_keys = OFF")
+        cur.execute("BEGIN")
+        cur.execute("DROP TABLE IF EXISTS urunler_yeni")
+        cur.execute(yeni_sql)
+        cur.execute(
+            f"INSERT INTO urunler_yeni ({kolon_listesi}) "
+            f"SELECT {kolon_listesi} FROM urunler"
+        )
+        cur.execute("DROP TABLE urunler")
+        cur.execute("ALTER TABLE urunler_yeni RENAME TO urunler")
+        conn.commit()
+        _indeksler(conn)
+        conn.commit()
+        log_info("Sema: urunler.stok_kodu UNIQUE kisiti kaldirildi (varyantlar icin).")
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        log_error("Sema: stok_kodu kisiti kaldirilamadi", e, __file__, "_urunler_stok_kodu_benzersiz_kaldir")
+    finally:
+        try:
+            conn.execute("PRAGMA foreign_keys = ON")
         except Exception:
             pass
 
@@ -250,6 +316,9 @@ def init_database():
             cur.execute("ALTER TABLE urunler ADD COLUMN kod_hazir INTEGER DEFAULT 1")
         except Exception:
             pass
+        # Varyantlar ana urunun stok_kodu ile gelir; UNIQUE kisiti cekmeyi engeller.
+        _urunler_stok_kodu_benzersiz_kaldir(conn)
+        cur = conn.cursor()
         # Mevcut kanal adedi > 0 olanlari yayinda isaretle
         try:
             cur.execute("UPDATE urunler SET wix_yayin = 1 WHERE COALESCE(wix_stok,0) > 0")

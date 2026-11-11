@@ -149,11 +149,16 @@ class MainWindow(QMainWindow):
         self._sunucu_sinyal = _SunucuSinyali()
         self._sunucu_sinyal.hazir.connect(self._sunucu_sonuc)
         self._sunucu_kontrol_surec = False
+        self._sunucu_fail = 0
         self._sunucu_timer = QTimer(self)
         self._sunucu_timer.timeout.connect(self._sunucu_kontrol_baslat)
         self._sunucu_timer.start(45000)
         QTimer.singleShot(2000, self._sunucu_kontrol_baslat)
         QTimer.singleShot(5000, self._arka_plan_senkron)
+        self._senkron_surec = False
+        self._sunucu_senkron_timer = QTimer(self)
+        self._sunucu_senkron_timer.timeout.connect(self._arka_plan_senkron)
+        self._sunucu_senkron_timer.start(60000)
 
         self._saat_timer_ust = QTimer(self)
         self._saat_timer_ust.timeout.connect(self._saat_ust_guncelle)
@@ -220,7 +225,7 @@ class MainWindow(QMainWindow):
         def isle():
             try:
                 from core.sync_servis import sunucu_uygun_mi
-                uygun = sunucu_uygun_mi(3.0)
+                uygun = sunucu_uygun_mi(10.0)
             except Exception:
                 uygun = False
             self._sunucu_sinyal.hazir.emit(uygun)
@@ -230,18 +235,35 @@ class MainWindow(QMainWindow):
     def _sunucu_sonuc(self, uygun: bool):
         self._sunucu_kontrol_surec = False
         yonetici = bool(self.kullanici and self.kullanici.get("rol") == "yonetici")
+        if uygun:
+            self._sunucu_fail = 0
+        else:
+            self._sunucu_fail = getattr(self, "_sunucu_fail", 0) + 1
+        # Pooler bazen 5-50 sn gecikiyor: tek yavas kontrol kirmizi bant göstermesin
+        goster = yonetici and self._sunucu_fail >= 2
         try:
-            self.lbl_sunucu_uyari.setVisible(yonetici and not uygun)
+            self.lbl_sunucu_uyari.setVisible(goster)
         except Exception:
             pass
 
     def _arka_plan_senkron(self):
+        if getattr(self, "_senkron_surec", False):
+            return
+        self._senkron_surec = True
+
         def isle():
             try:
                 from core.sync_servis import senkronize
-                senkronize(sessiz=True)
-            except Exception:
-                pass
+                snc = senkronize(sessiz=True)
+                if isinstance(snc, dict) and snc.get("ok"):
+                    self._sunucu_sinyal.hazir.emit(True)
+                elif isinstance(snc, dict) and snc.get("hata"):
+                    log_info(f"Arka plan senkron: {snc.get('hata')}")
+            except Exception as e:
+                log_error("Arka plan senkron", e, __file__, "_arka_plan_senkron")
+            finally:
+                self._senkron_surec = False
+
         threading.Thread(target=isle, daemon=True).start()
 
     def guncelle(self):
