@@ -261,7 +261,7 @@ class PersonelDialog(QDialog):
 
     def _aktif_yenile(self):
         try:
-            satirlar = aktif_kullanicilar()
+            satirlar = aktif_kullanicilar(sadece_kasiyer=True)
             adlar = sorted({(r.get("kullanici") or "").strip() for r in satirlar} - {""})
             self.lbl_aktif.setText("Aktif: " + (" · ".join(adlar) or "-"))
             secim = self.cmb_kullanici.currentText()
@@ -1575,7 +1575,7 @@ class MagazaEkrani(QWidget):
 
     def aktif_yenile(self):
         try:
-            satirlar = aktif_kullanicilar()
+            satirlar = aktif_kullanicilar(sadece_kasiyer=True)
             adlar = sorted({(r.get("kullanici") or "").strip() for r in satirlar} - {""})
             self.lbl_aktif.setText("Aktif: " + (" · ".join(adlar) or "-"))
         except Exception as e:

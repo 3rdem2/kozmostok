@@ -175,15 +175,23 @@ def vardiya_kapat_adi(kullanici: str) -> bool:
         return False
 
 
-def aktif_kullanicilar() -> list:
+def aktif_kullanicilar(sadece_kasiyer: bool = False) -> list:
     try:
         tablolari_hazirla()
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute(
+        sql = (
             "SELECT kullanici, giris_tarihi, giris_saati FROM vardiya_oturumlari "
-            "WHERE cikis_saati IS NULL ORDER BY id"
+            "WHERE cikis_saati IS NULL"
         )
+        if sadece_kasiyer:
+            sql += (
+                " AND EXISTS (SELECT 1 FROM kullanicilar k "
+                "WHERE k.kullanici_adi = vardiya_oturumlari.kullanici "
+                "AND k.rol = 'kasiyer')"
+            )
+        sql += " ORDER BY id"
+        cur.execute(sql)
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         return rows
