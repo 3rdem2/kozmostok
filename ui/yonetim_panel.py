@@ -836,7 +836,7 @@ class YonetimPaneli(QWidget):
             ("Düzenle", self.duzenle_urun, "ikincil"),
             ("Ürünü Sil", self.urun_sil_ui, "tehlike"),
             ("Ürünü Çoğalt", self.urun_cogalt_ui, "ikincil"),
-            ("Yenile", lambda: self.yenile(zorla=True), "ikincil"),
+            ("Yenile", self._sunucu_yenile, "ikincil"),
             ("Excel çıktı", self.stok_excel, "ikincil"),
         ):
             btn = QPushButton(etiket)
@@ -970,6 +970,26 @@ class YonetimPaneli(QWidget):
                 continue
             sonuc.append(u)
         return sonuc
+
+    def _sunucu_yenile(self):
+        """Urunleri yenile: once sunucu senkronu (cek + gonder), sonra tazele."""
+        from PyQt6.QtWidgets import QApplication
+        try:
+            from core.sync_servis import senkronize
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                snc = senkronize()
+            finally:
+                QApplication.restoreOverrideCursor()
+            if isinstance(snc, dict) and snc.get("ok"):
+                log_info(
+                    f"Sunucu senkronu: +{snc.get('gonderilen', 0)} gonderildi, "
+                    f"+{snc.get('alinan', 0)} alindi"
+                )
+        except Exception as e:
+            log_error("Sunucu senkronu", e, __file__, "_sunucu_yenile")
+        finally:
+            self.yenile(zorla=True)
 
     def aktif_yenile(self):
         try:

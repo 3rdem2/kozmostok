@@ -255,6 +255,16 @@ def gun_sonu_kaydet(
             f"Gun sonu: {t} kullanici={kullanici_adi} sayilan={sayilan:.2f} "
             f"beklenen={beklenen:.2f} fark={fark:.2f} excel={yol if ok else 'yok'}"
         )
+        try:
+            from core.sync_servis import senkronize
+            snc = senkronize(bekleme=8.0, sessiz=True)
+            if snc.get("ok"):
+                log_info(
+                    f"Gun sonu senkronu: +{snc.get('gonderilen', 0)} gonderildi, "
+                    f"+{snc.get('alinan', 0)} alindi"
+                )
+        except Exception as e:
+            log_error("Gun sonu senkronu", e, __file__, "gun_sonu_kaydet")
         mesaj = (
             f"{t} gun sonu kaydedildi.\n"
             f"Beklenen nakit: {beklenen:,.2f} TL\n"

@@ -6,7 +6,8 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel, QStackedWidget, QMessageBox,
     QDialog, QLineEdit, QDialogButtonBox, QApplication,
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QObject, pyqtSignal
+import threading
 from pathlib import Path
 from datetime import datetime
 from PyQt6.QtGui import QFont, QPixmap
@@ -25,6 +26,12 @@ from core.log_servis import (
 from ui.giris_ekrani import GirisEkrani
 from ui.magaza_ekrani import MagazaEkrani
 from ui.yonetim_panel import YonetimPaneli
+
+
+class _SunucuSinyali(QObject):
+    """Arka plan sunucu kontrolunun sonucunu ana thread'e tasir."""
+
+    hazir = pyqtSignal(bool)
 
 
 class PinDialog(QDialog):
@@ -125,6 +132,29 @@ class MainWindow(QMainWindow):
         self.btn_guncelle.setVisible(False)
         self.ust.setVisible(False)
         ana.addWidget(self.ust)
+
+        # Sunucu baglanti uyarisi (sadece yonetici gorur, modal degil)
+        self.lbl_sunucu_uyari = QLabel(
+            "Sunucuya bağlanılamadı — çevrimdışı çalışılıyor. "
+            "Kayıtlar bu bilgisayarda tutuluyor; bağlanınca gönderilecek."
+        )
+        self.lbl_sunucu_uyari.setWordWrap(True)
+        self.lbl_sunucu_uyari.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_sunucu_uyari.setStyleSheet(
+            "background:#8B0000; color:#FFFFFF; padding:6px; "
+            "font-weight:600; font-size:13px;"
+        )
+        self.lbl_sunucu_uyari.setVisible(False)
+        ana.addWidget(self.lbl_sunucu_uyari)
+        self._sunucu_sinyal = _SunucuSinyali()
+        self._sunucu_sinyal.hazir.connect(self._sunucu_sonuc)
+        self._sunucu_kontrol_surec = False
+        self._sunucu_timer = QTimer(self)
+        self._sunucu_timer.timeout.connect(self._sunucu_kontrol_baslat)
+        self._sunucu_timer.start(45000)
+        QTimer.singleShot(2000, self._sunucu_kontrol_baslat)
+        QTimer.singleShot(5000, self._arka_plan_senkron)
+
         self._saat_timer_ust = QTimer(self)
         self._saat_timer_ust.timeout.connect(self._saat_ust_guncelle)
         self._saat_timer_ust.start(1000)
@@ -153,6 +183,7 @@ class MainWindow(QMainWindow):
     def _giris_sonrasi(self, kullanici: dict):
         self.kullanici = kullanici
         self.ust.setVisible(True)
+        self._sunucu_kontrol_baslat()
         if self.magaza_ekrani is None:
             self.magaza_ekrani = MagazaEkrani()
             self.stack.addWidget(self.magaza_ekrani)
@@ -180,6 +211,38 @@ class MainWindow(QMainWindow):
             self.lbl_saat_ust.setText(
                 simdi.strftime("%d.%m.%Y  ·  %H:%M:%S")
             )
+
+    def _sunucu_kontrol_baslat(self):
+        if getattr(self, "_sunucu_kontrol_surec", False):
+            return
+        self._sunucu_kontrol_surec = True
+
+        def isle():
+            try:
+                from core.sync_servis import sunucu_uygun_mi
+                uygun = sunucu_uygun_mi(3.0)
+            except Exception:
+                uygun = False
+            self._sunucu_sinyal.hazir.emit(uygun)
+
+        threading.Thread(target=isle, daemon=True).start()
+
+    def _sunucu_sonuc(self, uygun: bool):
+        self._sunucu_kontrol_surec = False
+        yonetici = bool(self.kullanici and self.kullanici.get("rol") == "yonetici")
+        try:
+            self.lbl_sunucu_uyari.setVisible(yonetici and not uygun)
+        except Exception:
+            pass
+
+    def _arka_plan_senkron(self):
+        def isle():
+            try:
+                from core.sync_servis import senkronize
+                senkronize(sessiz=True)
+            except Exception:
+                pass
+        threading.Thread(target=isle, daemon=True).start()
 
     def guncelle(self):
         """Sunucudaki surum manifestini kontrol eder, yeniyse indirip kurar."""
@@ -305,6 +368,16 @@ class MainWindow(QMainWindow):
             program_oturumlarini_kapat()
         except Exception:
             pass
+        try:
+            from core.sync_servis import senkronize
+            snc = senkronize(bekleme=6.0, sessiz=True)
+            if snc.get("ok"):
+                log_info(
+                    f"Kapanis senkronu: +{snc.get('gonderilen', 0)} gonderildi, "
+                    f"+{snc.get('alinan', 0)} alindi"
+                )
+        except Exception as e:
+            log_error("Kapanis senkronu", e, __file__, "closeEvent")
         try:
             from core.rapor_servis import kapanis_yedek
             from core.yedek_servis import yedek_al

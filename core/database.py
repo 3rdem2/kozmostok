@@ -13,7 +13,9 @@ from core.db_config import DB_MODE, POSTGRES
 from core.logger import log_error, log_info, BASE_DIR
 
 DB_PATH = BASE_DIR / "db" / "kozmostok.db"
-PG_MOD = str(DB_MODE or "sqlite").lower().startswith("postgres")
+# Cevrimdisi-ilk mimari: program HER ZAMAN yerel SQLite ile calisir;
+# PostgreSQL (Supabase) yalnizca core/sync_servis tarafindan kullanilir.
+PG_MOD = False
 
 # Sema surumu: DDL degistikce artirilir. Ayni surumde acilis DDL'i atlanir.
 SEMA_SURUM = "4"

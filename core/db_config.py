@@ -105,3 +105,17 @@ def config_oku() -> dict:
         "user": POSTGRES.get("user", ""),
         "password": POSTGRES.get("password", ""),
     }
+
+
+def makine_adi() -> str:
+    """Bu bilgisayarin senkron kimligi (config.ini [database] makine)."""
+    v = (_ini.get("database", "makine", fallback="") or "").strip()
+    if v:
+        return v
+    import secrets
+    v = "PC-" + secrets.token_hex(2).upper()
+    try:
+        config_yaz({"makine": v})
+    except Exception:
+        pass
+    return v
